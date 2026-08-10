@@ -149,7 +149,9 @@
         <input type="range" id="s-Pe" min="1" max="50" step="0.01" value="9.00">
       </div>
       <div class="slider-block">
-        <div class="slider-head"><span class="name">흡입 과열도 ΔTsh</span><span class="num mono" id="v-Tsh">11.1 °C</span></div>
+        <div class="slider-head"><span class="name">흡입 과열도 ΔTsh</span>
+          <span><input type="number" class="num-input mono" id="n-Tsh" value="11.1" step="0.1" min="0" max="25"> °C</span>
+        </div>
         <input type="range" id="s-Tsh" min="0" max="25" step="0.1" value="11.1">
       </div>
 
@@ -161,7 +163,9 @@
           <input type="range" id="s-Pc" min="5" max="48" step="0.01" value="33.30">
         </div>
         <div class="slider-block">
-          <div class="slider-head"><span class="name">응축기 출구 과냉도 ΔTsc</span><span class="num mono" id="v-Tsc">0.0 °C</span></div>
+          <div class="slider-head"><span class="name">응축기 출구 과냉도 ΔTsc</span>
+            <span><input type="number" class="num-input mono" id="n-Tsc" value="0.0" step="0.1" min="0" max="15"> °C</span>
+          </div>
           <input type="range" id="s-Tsc" min="0" max="15" step="0.1" value="0">
         </div>
       </div>
@@ -174,7 +178,9 @@
           <input type="range" id="s-Pgc" min="60" max="150" step="0.01" value="100.00">
         </div>
         <div class="slider-block">
-          <div class="slider-head"><span class="name">가스쿨러 출구온도 T3</span><span class="num mono" id="v-T3">54.4 °C</span></div>
+          <div class="slider-head"><span class="name">가스쿨러 출구온도 T3</span>
+            <span><input type="number" class="num-input mono" id="n-T3" value="54.4" step="0.1" min="32" max="65"> °C</span>
+          </div>
           <input type="range" id="s-T3" min="32" max="65" step="0.1" value="54.4">
         </div>
         <div class="warn" id="transcritical-note">
@@ -637,12 +643,12 @@ function satDome(fl, tMax){
 }
 
 function updateLabels(){
-  syncPressureField('Pe'); 
-  $('v-Tsh').textContent = state.Tsh.toFixed(1)+' °C';
+  syncPressureField('Pe');
+  syncNumField('Tsh',1);
   syncPressureField('Pc');
-  $('v-Tsc').textContent = state.Tsc.toFixed(1)+' °C';
+  syncNumField('Tsc',1);
   syncPressureField('Pgc');
-  $('v-T3').textContent = state.T3.toFixed(1)+' °C';
+  syncNumField('T3',1);
   $('v-eta').textContent = state.eta.toFixed(2);
   $('v-Vs').textContent = state.Vs.toFixed(0)+' cm³/rev';
   $('v-N').textContent = state.N.toFixed(0)+' Hz';
@@ -810,6 +816,31 @@ function syncPressureField(key){
   if (rng) rng.value = state[key];
 }
 
+function syncNumField(key, decimals){
+  const num = $('n-'+key), rng = $('s-'+key);
+  if (!num) return;
+  if (document.activeElement !== num){ num.value = state[key].toFixed(decimals); }
+  if (rng) rng.value = state[key];
+}
+
+function bindDualControl(key, decimals){
+  const rng = $('s-'+key), num = $('n-'+key);
+  rng.addEventListener('input', e=>{
+    state[key] = parseFloat(e.target.value);
+    num.value = state[key].toFixed(decimals);
+    render();
+  });
+  num.addEventListener('input', e=>{
+    const v = parseFloat(e.target.value);
+    if (!isNaN(v)){
+      state[key] = v;
+      rng.value = Math.min(Math.max(v, parseFloat(rng.min)), parseFloat(rng.max));
+      render();
+    }
+  });
+  num.addEventListener('blur', ()=>{ num.value = state[key].toFixed(decimals); });
+}
+
 function bindPressureControl(key){
   const rng = $('s-'+key), num = $('n-'+key);
   rng.addEventListener('input', e=>{
@@ -836,11 +867,11 @@ function bindSlider(id, key, cb){
   });
 }
 bindPressureControl('Pe');
-bindSlider('s-Tsh','Tsh');
+bindDualControl('Tsh',1);
 bindPressureControl('Pc');
-bindSlider('s-Tsc','Tsc');
+bindDualControl('Tsc',1);
 bindPressureControl('Pgc');
-bindSlider('s-T3','T3');
+bindDualControl('T3',1);
 bindSlider('s-eta','eta');
 bindSlider('s-Vs','Vs');
 bindSlider('s-N','N');
