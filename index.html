@@ -250,6 +250,7 @@
         <div class="kpi"><div class="label">압축동력 Pw</div><div class="value mono" id="k-pw">–</div></div>
         <div class="kpi"><div class="label">체적냉동능력 qv</div><div class="value mono" id="k-qv">–</div></div>
       </div>
+      <div class="note" style="margin-top:10px">* HP는 순수 기계동력 환산(1kW=1.341hp)이 아니라, 공조업계 압축기 정격 표시 관행치(1HP ≈ 2.907kW 냉방능력, 2500kcal/h 기준)입니다. 제조사·관행에 따라 2.5~3.0kW/HP로 다를 수 있습니다.</div>
 
       <div class="scrollx" style="margin-top:14px">
       <table id="state-table">
@@ -732,7 +733,7 @@ function render(){
   const Pw_cap = mdot * res.wcs; // kW (theoretical)
   const qv = res.qe * res.rho1; // kJ/m3
   $('k-mdot').innerHTML = fmt(mdot*3600,1)+'<span class="unit">kg/h</span>';
-  $('k-cap').innerHTML = fmt(Qe_cap,3)+'<span class="unit">kW</span>  ('+fmt(Qe_cap*1.341022,2)+' hp)';
+  $('k-cap').innerHTML = fmt(Qe_cap,3)+'<span class="unit">kW</span>  ('+fmt(Qe_cap/2.907,2)+' 마력 HP*)';
   $('k-pw').innerHTML = fmt(Pw_cap,3)+'<span class="unit">kW</span>';
   $('k-qv').innerHTML = fmt(qv,0)+'<span class="unit">kJ/m³</span>';
 
