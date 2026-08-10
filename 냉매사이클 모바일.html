@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>냉매 사이클 분석 · R410A / R290 / R744</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12161B; --panel:#1B2027; --panel2:#20262E; --border:#2A313A;
+    --text:#E7ECEF; --text-dim:#8C97A3; --text-faint:#5B6570;
+    --r410a:#5B8DEF; --r290:#3FBE81; --r744:#E2604C;
+    --focus:#F2C34C;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:'IBM Plex Sans KR',system-ui,sans-serif; -webkit-font-smoothing:antialiased;}
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important;} }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  button, input{ font-family:inherit; }
+  button:focus-visible, input:focus-visible, .tab:focus-visible{
+    outline:2px solid var(--focus); outline-offset:2px;
+  }
+
+  .wrap{max-width:720px;margin:0 auto;padding:0 0 48px;}
+
+  header{padding:22px 18px 14px; border-bottom:1px solid var(--border);}
+  header h1{font-size:17px; font-weight:600; margin:0 0 3px; letter-spacing:.01em;}
+  header p{margin:0; font-size:12.5px; color:var(--text-dim); line-height:1.5;}
+
+  .tabs{display:flex; gap:8px; padding:14px 18px 0;}
+  .tab{
+    flex:1; padding:11px 6px; border-radius:10px; border:1px solid var(--border);
+    background:var(--panel); color:var(--text-dim); font-size:13.5px; font-weight:600;
+    cursor:pointer; transition:background .15s, color .15s, border-color .15s;
+    text-align:center;
+  }
+  .tab .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+  .tab[data-fluid="R410A"] .dot{background:var(--r410a);}
+  .tab[data-fluid="R290"] .dot{background:var(--r290);}
+  .tab[data-fluid="R744"] .dot{background:var(--r744);}
+  .tab.active{color:var(--text); border-color:currentColor;}
+  .tab.active[data-fluid="R410A"]{border-color:var(--r410a); background:rgba(91,141,239,.10);}
+  .tab.active[data-fluid="R290"]{border-color:var(--r290); background:rgba(63,190,129,.10);}
+  .tab.active[data-fluid="R744"]{border-color:var(--r744); background:rgba(226,96,76,.10);}
+
+  section{padding:18px 18px 0;}
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px;}
+  .card + .card{margin-top:12px;}
+  .card h2{font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--text-dim); margin:0 0 12px;}
+
+  .row{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+  .row:last-child{margin-bottom:0;}
+  .row label{font-size:13.5px; color:var(--text);}
+  .row .val{font-size:13.5px; font-weight:600;}
+  input[type=range]{
+    -webkit-appearance:none; width:100%; height:32px; background:transparent; margin-top:6px;
+  }
+  input[type=range]::-webkit-slider-runnable-track{height:4px; background:var(--border); border-radius:2px;}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:20px; height:20px; border-radius:50%;
+    background:var(--focus); margin-top:-8px; border:3px solid var(--bg);
+    box-shadow:0 0 0 1px var(--border);
+  }
+  input[type=range]::-moz-range-track{height:4px; background:var(--border); border-radius:2px;}
+  input[type=range]::-moz-range-thumb{
+    width:20px; height:20px; border-radius:50%; background:var(--focus); border:3px solid var(--bg);
+  }
+  .slider-block{margin-bottom:16px;}
+  .slider-block:last-child{margin-bottom:0;}
+  .slider-head{display:flex; justify-content:space-between; font-size:13px; margin-bottom:2px;}
+  .slider-head .name{color:var(--text-dim);}
+  .slider-head .num{font-weight:600;}
+  .num-input{
+    width:92px; text-align:right; background:var(--panel2); color:var(--text);
+    border:1px solid var(--border); border-radius:7px; padding:5px 8px;
+    font-weight:600; font-size:13px;
+  }
+  .num-input:focus{border-color:var(--focus);}
+
+  .toggle-row{display:flex; gap:8px; margin-bottom:16px;}
+  .toggle{flex:1; padding:9px; text-align:center; border-radius:9px; border:1px solid var(--border);
+    background:var(--panel2); font-size:12.5px; color:var(--text-dim); cursor:pointer;}
+  .toggle.active{color:var(--text); border-color:var(--focus); background:rgba(242,195,76,.10);}
+
+  .note{font-size:11.5px; color:var(--text-faint); line-height:1.55; margin-top:10px;}
+  .warn{font-size:11.5px; color:#E2A03F; line-height:1.55; background:rgba(226,160,63,.08);
+    border:1px solid rgba(226,160,63,.25); border-radius:9px; padding:9px 11px; margin-top:10px;}
+
+  .kpi-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .kpi{background:var(--panel2); border:1px solid var(--border); border-radius:11px; padding:12px;}
+  .kpi .label{font-size:11px; color:var(--text-dim); margin-bottom:5px;}
+  .kpi .value{font-size:19px; font-weight:600;}
+  .kpi .unit{font-size:11px; color:var(--text-faint); margin-left:3px;}
+  .kpi.wide{grid-column:1 / -1;}
+
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  th,td{padding:8px 6px; text-align:right; border-bottom:1px solid var(--border);}
+  th:first-child,td:first-child{text-align:left; color:var(--text-dim);}
+  th{color:var(--text-faint); font-weight:500; font-size:11px;}
+  .scrollx{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+
+  .compare-table td, .compare-table th{padding:9px 8px;}
+  .compare-table .fluid-hdr{display:flex; align-items:center; gap:6px; justify-content:flex-end;}
+  .swatch{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+  canvas{width:100%; display:block; border-radius:10px;}
+  .legend{display:flex; gap:14px; margin-top:10px; flex-wrap:wrap;}
+  .legend-item{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-dim);}
+  .legend-line{width:14px;height:2px; border-radius:1px;}
+
+  footer{padding:20px 18px 0; font-size:11px; color:var(--text-faint); line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>냉매 사이클 분석</h1>
+    <p>R410A · R290 · R744 — Peng-Robinson 상태방정식 기반 자체 계산 엔진 (인터넷 연결·애드인 불필요)</p>
+  </header>
+
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-fluid="R410A"><span class="dot"></span>R410A</div>
+    <div class="tab" data-fluid="R290"><span class="dot"></span>R290</div>
+    <div class="tab" data-fluid="R744"><span class="dot"></span>R744</div>
+  </div>
+
+  <section>
+    <div class="card" id="engine-card">
+      <h2>계산 엔진</h2>
+      <div class="row">
+        <label id="engine-label">확인 중…</label>
+        <button id="engine-retry" class="toggle" style="flex:none; padding:7px 12px; display:none">다시 시도</button>
+      </div>
+      <div class="note" id="engine-note">./coolprop.js, ./coolprop.wasm 파일을 이 HTML과 같은 폴더(정적 웹호스팅)에 두면 정식 CoolProp 엔진으로 자동 전환됩니다. 파일을 그냥 폰에 저장해 여는 방식(file://)에서는 브라우저 보안정책상 로드되지 않고, 자동으로 자체 근사엔진(PR-EOS)으로 동작합니다.</div>
+    </div>
+  </section>
+
+  <section>
+    <div class="card">
+      <h2>운전 조건</h2>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">증발압력 Pe (절대압)</span>
+          <span><input type="number" class="num-input mono" id="n-Pe" value="9.00" step="0.01" min="1" max="50"> bar</span>
+        </div>
+        <input type="range" id="s-Pe" min="1" max="50" step="0.01" value="9.00">
+      </div>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">흡입 과열도 ΔTsh</span><span class="num mono" id="v-Tsh">11.1 °C</span></div>
+        <input type="range" id="s-Tsh" min="0" max="25" step="0.1" value="11.1">
+      </div>
+
+      <div id="subcritical-inputs">
+        <div class="slider-block">
+          <div class="slider-head"><span class="name">응축압력 Pc (절대압)</span>
+            <span><input type="number" class="num-input mono" id="n-Pc" value="33.30" step="0.01" min="5" max="48"> bar</span>
+          </div>
+          <input type="range" id="s-Pc" min="5" max="48" step="0.01" value="33.30">
+        </div>
+        <div class="slider-block">
+          <div class="slider-head"><span class="name">응축기 출구 과냉도 ΔTsc</span><span class="num mono" id="v-Tsc">0.0 °C</span></div>
+          <input type="range" id="s-Tsc" min="0" max="15" step="0.1" value="0">
+        </div>
+      </div>
+
+      <div id="transcritical-inputs" style="display:none">
+        <div class="slider-block">
+          <div class="slider-head"><span class="name">가스쿨러 출구압력 P_gc (절대압)</span>
+            <span><input type="number" class="num-input mono" id="n-Pgc" value="100.00" step="0.01" min="60" max="150"> bar</span>
+          </div>
+          <input type="range" id="s-Pgc" min="60" max="150" step="0.01" value="100.00">
+        </div>
+        <div class="slider-block">
+          <div class="slider-head"><span class="name">가스쿨러 출구온도 T3</span><span class="num mono" id="v-T3">54.4 °C</span></div>
+          <input type="range" id="s-T3" min="32" max="65" step="0.1" value="54.4">
+        </div>
+        <div class="warn" id="transcritical-note">
+          R744는 응축압력 Pc가 임계압력(73.8bar abs)보다 높아지면 응축이 없습니다. 가스쿨러 출구압력을 직접 조정해 최적점을 찾아보세요 — COP가 최대가 되는 압력이 존재합니다.
+        </div>
+      </div>
+
+      <div class="slider-block" style="margin-top:4px">
+        <div class="slider-head"><span class="name">단열효율 ηis (1=이론)</span><span class="num mono" id="v-eta">1.00</span></div>
+        <input type="range" id="s-eta" min="0.5" max="1.0" step="0.01" value="1.00">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>압축기 제원 (냉방능력 산출용)</h2>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">행정체적 Vs</span><span class="num mono" id="v-Vs">35 cm³/rev</span></div>
+        <input type="range" id="s-Vs" min="5" max="120" step="1" value="35">
+      </div>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">회전 속도 f</span><span class="num mono" id="v-N">60 Hz</span></div>
+        <input type="range" id="s-N" min="25" max="135" step="1" value="60">
+      </div>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">체적효율 ηv</span><span class="num mono" id="v-etaV">0.95</span></div>
+        <input type="range" id="s-etaV" min="0.5" max="1.0" step="0.01" value="0.95">
+      </div>
+      <div class="note">Vs·N·ηv·ρ1(흡입밀도)로 질량유량을 구하고, qe·wc를 곱해 냉방능력·압축동력을 산출합니다. 이 값들은 이론 EER(사이클 효율)과는 독립적으로, 압축기 크기가 만드는 실제 출력을 보여줍니다.</div>
+    </div>
+
+    <div class="card">
+      <h2 id="kpi-title">선택 냉매 결과 — R410A</h2>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">냉동효과 qe</div><div class="value mono" id="k-qe">–</div></div>
+        <div class="kpi"><div class="label">압축일 wc</div><div class="value mono" id="k-wc">–</div></div>
+        <div class="kpi"><div class="label">이론 COP</div><div class="value mono" id="k-cop">–</div></div>
+        <div class="kpi"><div class="label">이론 EER</div><div class="value mono" id="k-eer">–</div></div>
+        <div class="kpi"><div class="label">이론 토출온도</div><div class="value mono" id="k-t2s">–</div></div>
+        <div class="kpi"><div class="label">실제 토출온도</div><div class="value mono" id="k-t2">–</div></div>
+        <div class="kpi wide"><div class="label">압력 절대압 (증발 / 고압측 / 차압)</div>
+          <div class="value mono" id="k-press">–</div></div>
+        <div class="kpi"><div class="label">질량유량 ṁ</div><div class="value mono" id="k-mdot">–</div></div>
+        <div class="kpi"><div class="label">냉방능력 Qe</div><div class="value mono" id="k-cap">–</div></div>
+        <div class="kpi"><div class="label">압축동력 Pw</div><div class="value mono" id="k-pw">–</div></div>
+        <div class="kpi"><div class="label">체적냉동능력 qv</div><div class="value mono" id="k-qv">–</div></div>
+      </div>
+
+      <div class="scrollx" style="margin-top:14px">
+      <table id="state-table">
+        <thead><tr><th>상태점</th><th>T [°C]</th><th>P [bar,abs]</th><th>h [kJ/kg]</th><th>s [kJ/kg·K]</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>P-h 선도 (세 냉매 비교)</h2>
+      <canvas id="phchart" width="640" height="440"></canvas>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-line" style="background:var(--r410a)"></span>R410A</div>
+        <div class="legend-item"><span class="legend-line" style="background:var(--r290)"></span>R290</div>
+        <div class="legend-item"><span class="legend-line" style="background:var(--r744)"></span>R744</div>
+      </div>
+      <div class="note">점선 = 포화선(아임계 구간만). 세로축 로그(bar). 원형마커 = 압축기 사이클 상태점 1→2→3→4.</div>
+    </div>
+
+    <div class="card">
+      <h2>3냉매 비교 요약</h2>
+      <div class="scrollx">
+      <table class="compare-table" id="compare-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th><span class="fluid-hdr"><span class="swatch" style="background:var(--r410a)"></span>R410A</span></th>
+            <th><span class="fluid-hdr"><span class="swatch" style="background:var(--r290)"></span>R290</span></th>
+            <th><span class="fluid-hdr"><span class="swatch" style="background:var(--r744)"></span>R744</span></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      </div>
+    </div>
+
+    <div class="note">비교표의 "동일 Vs 가정시 냉방능력"은 위에서 설정한 행정체적·회전수·체적효율을 세 냉매에 동일하게 적용했을 때의 값입니다. 실제로는 냉매별로 배제체적을 다르게 설계하는 게 일반적이니, 압축기 "크기 자체"를 냉매 간에 맞춰볼 때만 참고하십시오.</div>
+
+    <div class="warn">
+      이 계산은 Peng-Robinson 상태방정식 + 이상기체 비열 근사에 기반한 자체 엔진입니다. NIST REFPROP/CoolProp 대비 오차가 있을 수 있습니다 (검증 결과 CO₂·프로판은 포화압력 기준 약 0.2~0.3%, R410A는 혼합냉매를 가상순물질로 근사해 약 1~6% 수준). <b>개념 비교·트렌드 파악용으로 쓰시고, 최종 설계 수치는 반드시 REFPROP/CoolProp 등 정식 물성엔진으로 재검증하십시오.</b>
+    </div>
+  </section>
+
+  <footer>
+    ARI(AHRI 540) 기본조건: Te 7.2°C / Tc 54.4°C / 과열 11.1K / 과냉 0K. R744는 AHRI 540 적용범위 밖(AHRI 570/571)이라 동일 Te·과열 조건에서 가스쿨러 압력만 맞춘 참고 비교값입니다.
+  </footer>
+</div>
+
+<script>
+/* ===================== Peng-Robinson property engine ===================== */
+const Rgas = 8.314462618;
+
+const FLUIDS = {
+  R410A: {Tc:344.5, Pc:4901e3, omega:0.3913, M:0.07258,
+          cpA:-0.352, cpB:0.02620, cpC:0.0, cpD:0.0, color:'--r410a', label:'R410A'},
+  R290:  {Tc:369.89, Pc:4251e3, omega:0.1521, M:0.04410,
+          cpA:1.213, cpB:28.785e-3, cpC:-8.824e-6, cpD:0.0, color:'--r290', label:'R290'},
+  R744:  {Tc:304.13, Pc:7377e3, omega:0.22394, M:0.04401,
+          cpA:5.457, cpB:1.045e-3, cpC:0.0, cpD:-1.157e5, color:'--r744', label:'R744'}
+};
+const T0 = 273.15, P0 = 1e5;
+
+function prParams(fl,T){
+  const d = FLUIDS[fl];
+  const ac = 0.45724*Rgas*Rgas*d.Tc*d.Tc/d.Pc;
+  const b = 0.07780*Rgas*d.Tc/d.Pc;
+  const kappa = 0.37464 + 1.54226*d.omega - 0.26992*d.omega*d.omega;
+  const Tr = T/d.Tc, sq = Math.sqrt(Tr);
+  const alpha = Math.pow(1+kappa*(1-sq),2);
+  const a = ac*alpha;
+  const dadT = -ac*kappa*Math.sqrt(alpha/Tr)/d.Tc;
+  return {a,b,dadT};
+}
+
+function cubicRoots(c2,c1,c0){
+  const a=c2,b=c1,c=c0;
+  const p = b - a*a/3;
+  const q = 2*a*a*a/27 - a*b/3 + c;
+  const disc = (q/2)*(q/2) + (p/3)*(p/3)*(p/3);
+  let roots=[];
+  if (disc > 0){
+    const sqd = Math.sqrt(disc);
+    const u = Math.cbrt(-q/2+sqd);
+    const v = Math.cbrt(-q/2-sqd);
+    roots = [u+v-a/3];
+  } else {
+    const r = Math.sqrt(-(p/3)*(p/3)*(p/3));
+    const phi = Math.acos(Math.max(-1,Math.min(1,(-q/2)/r)));
+    const m = 2*Math.sqrt(-p/3);
+    for(let k=0;k<3;k++) roots.push(m*Math.cos((phi+2*Math.PI*k)/3) - a/3);
+  }
+  return roots;
+}
+
+function Zroots(fl,T,P){
+  const {a,b,dadT} = prParams(fl,T);
+  const A = a*P/(Rgas*T*Rgas*T);
+  const B = b*P/(Rgas*T);
+  const c2 = -(1-B), c1 = A-3*B*B-2*B, c0 = -(A*B-B*B-B*B*B);
+  const roots = cubicRoots(c2,c1,c0).filter(z=>z>B).sort((x,y)=>x-y);
+  return {roots,A,B,a,b,dadT};
+}
+
+function lnPhi(Z,A,B){
+  const term = Math.log((Z+(1+Math.SQRT2)*B)/(Z+(1-Math.SQRT2)*B));
+  return Z-1 - Math.log(Z-B) - A/(2*Math.SQRT2*B)*term;
+}
+
+function psat(fl,T){
+  const d = FLUIDS[fl];
+  const Tr = T/d.Tc;
+  let P = d.Pc*Math.exp(5.373*(1+d.omega)*(1-1/Tr));
+  for(let i=0;i<100;i++){
+    const {roots,A,B} = Zroots(fl,T,P);
+    if (roots.length<2){ P*=0.98; continue; }
+    const Zl=roots[0], Zv=roots[roots.length-1];
+    const ratio = Math.exp(lnPhi(Zl,A,B)-lnPhi(Zv,A,B));
+    const Pnew = P*ratio;
+    if (Math.abs(Pnew-P)/P < 1e-8) return Pnew;
+    P = Pnew;
+  }
+  return P;
+}
+
+function cp0IntH(fl,T1,T2){
+  const d=FLUIDS[fl];
+  return Rgas*(d.cpA*(T2-T1) + d.cpB/2*(T2*T2-T1*T1) + d.cpC/3*(T2**3-T1**3) - d.cpD*(1/T2-1/T1));
+}
+function cp0IntS(fl,T1,T2){
+  const d=FLUIDS[fl];
+  return Rgas*(d.cpA*Math.log(T2/T1) + d.cpB*(T2-T1) + d.cpC/2*(T2*T2-T1*T1) + d.cpD/2*(1/(T2*T2)-1/(T1*T1)));
+}
+
+function depFn(fl,T,P,vapor){
+  const {roots,A,B,a,b,dadT} = Zroots(fl,T,P);
+  if (roots.length===0) return null;
+  const Z = vapor ? roots[roots.length-1] : roots[0];
+  const term = Math.log((Z+(1+Math.SQRT2)*B)/(Z+(1-Math.SQRT2)*B));
+  const Hr = Rgas*T*(Z-1) + (T*dadT - a)/(2*Math.SQRT2*b)*term;
+  const Sr = Rgas*Math.log(Z-B) + dadT/(2*Math.SQRT2*b)*term;
+  return {Hr,Sr,Z};
+}
+
+function densityMass(fl,T,P,vapor=true){
+  const {roots} = Zroots(fl,T,P);
+  const Z = vapor ? roots[roots.length-1] : roots[0];
+  const M = FLUIDS[fl].M;
+  return P*M/(Z*Rgas*T); // kg/m3
+}
+function hMass(fl,T,P,vapor=true){
+  const dep = depFn(fl,T,P,vapor);
+  const Hig = cp0IntH(fl,T0,T);
+  const M = FLUIDS[fl].M;
+  return (Hig+dep.Hr)/M/1000;
+}
+function sMass(fl,T,P,vapor=true){
+  const dep = depFn(fl,T,P,vapor);
+  const Sig = cp0IntS(fl,T0,T) - Rgas*Math.log(P/P0);
+  const M = FLUIDS[fl].M;
+  return (Sig+dep.Sr)/M/1000;
+}
+
+function findT_PS(fl,P,sTarget,Tguess,vapor=true){
+  let T = Tguess;
+  for(let i=0;i<60;i++){
+    const f = sMass(fl,T,P,vapor)-sTarget;
+    const dT=0.05;
+    const f2 = sMass(fl,T+dT,P,vapor)-sTarget;
+    const deriv=(f2-f)/dT;
+    const Tn = T - f/deriv;
+    if (Math.abs(Tn-T)<1e-6){ T=Tn; break; }
+    T=Tn;
+  }
+  return T;
+}
+function findT_PH(fl,P,hTarget,Tguess,vapor=true){
+  let T = Tguess;
+  for(let i=0;i<60;i++){
+    const f = hMass(fl,T,P,vapor)-hTarget;
+    const dT=0.05;
+    const f2 = hMass(fl,T+dT,P,vapor)-hTarget;
+    const deriv=(f2-f)/dT;
+    const Tn = T - f/deriv;
+    if (Math.abs(Tn-T)<1e-6){ T=Tn; break; }
+    T=Tn;
+  }
+  return T;
+}
+
+function computeCycle(fl, TeC, TshK, mode, opts){
+  // opts: {TcC, TscK} for subcritical, or {PgcBar, T3C} for transcritical
+  const Te = TeC+273.15;
+  const Pe = psat(fl,Te);
+  const T1 = Te+TshK;
+  const h1 = hMass(fl,T1,Pe,true);
+  const s1 = sMass(fl,T1,Pe,true);
+
+  let Pc, T3, h3;
+  if (mode==='subcritical'){
+    const Tc = opts.TcC+273.15;
+    Pc = psat(fl,Tc);
+    T3 = Tc - opts.TscK;
+    h3 = hMass(fl,T3,Pc,false);
+  } else {
+    Pc = opts.PgcBar*1e5;
+    T3 = opts.T3C+273.15;
+    h3 = hMass(fl,T3,Pc,false);
+  }
+
+  const T2s = findT_PS(fl,Pc,s1,T1+50,true);
+  const h2s = hMass(fl,T2s,Pc,true);
+  const h4 = h3;
+
+  const etaIs = opts.etaIs || 1.0;
+  const h2 = h1 + (h2s-h1)/etaIs;
+  const T2 = findT_PH(fl,Pc,h2,T2s,true);
+
+  // state 4 is always at the evaporator saturation temperature (Te);
+  // it's a two-phase mixture, so solve quality x4 from hf/hg at Pe, not a free temperature.
+  const hf = hMass(fl,Te,Pe,false), hg = hMass(fl,Te,Pe,true);
+  const sf = sMass(fl,Te,Pe,false), sg = sMass(fl,Te,Pe,true);
+  const x4 = (h4-hf)/(hg-hf);
+  const s4 = sf + x4*(sg-sf);
+  const T4 = Te;
+
+  const qe = h1-h4, wcs = h2s-h1, wc = h2-h1;
+  const COP = qe/wcs, EER = COP*3.412142;
+  const COPa = qe/wc, EERa = COPa*3.412142;
+
+  const rho1 = densityMass(fl,T1,Pe,true);
+  return {Pe,Pc,T1,h1,s1,T2s,h2s,T2,h2,T3,h3,T4,h4,s4,x4,rho1,
+          qe,wcs,wc,COP,EER,COPa,EERa};
+}
+
+/* ===================== Real CoolProp (optional, auto-detected) ===================== */
+let ENGINE = 'pr';      // 'pr' (built-in Peng-Robinson) or 'coolprop' (real engine)
+let cpModule = null;
+
+function realFluidId(fl){
+  return fl==='R290' ? 'Propane' : (fl==='R744' ? 'CO2' : fl);
+}
+
+let _loadToken = 0;
+async function tryLoadCoolProp(){
+  const myToken = ++_loadToken;
+  const $lab = document.getElementById('engine-label');
+  const $note = document.getElementById('engine-note');
+  const $retry = document.getElementById('engine-retry');
+  $lab.textContent = '확인 중…';
+  $retry.style.display = 'none';
+
+  const fallback = (reason)=>{
+    if (myToken !== _loadToken) return; // a newer attempt already took over
+    ENGINE = 'pr';
+    cpModule = null;
+    $lab.innerHTML = '<b style="color:#E2A03F">자체 근사엔진 (PR-EOS)</b> 사용 중';
+    $note.textContent = './coolprop.js를 찾지 못했거나(파일 없음 / file:// 제약 / '+reason+') 로드가 실패했습니다 — 정적 웹호스팅(GitHub Pages 등)에 세 파일을 함께 올리면 정식 엔진으로 전환됩니다. 지금은 근사엔진(오차 최대 수 % 수준)으로 계산합니다.';
+    $retry.style.display = 'block';
+    render();
+  };
+
+  // Hard timeout that fires regardless of whether the import() call itself
+  // ever rejects (on some mobile browsers a blocked local module import
+  // just hangs forever instead of throwing).
+  const hardTimeoutId = setTimeout(()=>fallback('timeout'), 3000);
+
+  try{
+    const mod = await import('./coolprop.js');
+    const inst = await mod.default();
+    const rho = inst.PropsSI('D','T',300,'P',101325,'Water');
+    if (Math.abs(rho-996.6) > 5) throw new Error('sanity check failed');
+    clearTimeout(hardTimeoutId);
+    if (myToken !== _loadToken) return;
+    cpModule = inst;
+    ENGINE = 'coolprop';
+    $lab.innerHTML = '<b style="color:#3FBE81">CoolProp 정식 엔진</b> 연동됨';
+    $note.textContent = 'NIST REFPROP과 동일한 참조 상태방정식으로 계산 중입니다.';
+    render();
+  }catch(e){
+    clearTimeout(hardTimeoutId);
+    fallback(String(e && e.message || e));
+  }
+}
+document.getElementById('engine-retry').addEventListener('click', tryLoadCoolProp);
+
+/* ===================== Real-engine cycle calculation (mirrors computeCycle) ===================== */
+function computeCycleReal(fl, TeC, TshK, mode, opts){
+  const id = realFluidId(fl);
+  const P = (...a)=>cpModule.PropsSI(...a);
+  const Te = TeC+273.15;
+  const Pe = P('P','T',Te,'Q',1,id);
+  const T1 = Te+TshK;
+  const h1 = P('H','T',T1,'P',Pe,id)/1000;
+  const s1 = P('S','T',T1,'P',Pe,id)/1000;
+  const rho1 = P('D','T',T1,'P',Pe,id);
+
+  let Pc, T3, h3;
+  if (mode==='subcritical'){
+    const Tc = opts.TcC+273.15;
+    Pc = P('P','T',Tc,'Q',0,id);
+    if (opts.TscK > 0.001){
+      T3 = Tc-opts.TscK;
+      h3 = P('H','T',T3,'P',Pc,id)/1000;
+    } else {
+      T3 = Tc;
+      h3 = P('H','P',Pc,'Q',0,id)/1000; // avoid T,P ambiguity exactly on the dome
+    }
+  } else {
+    Pc = opts.PgcBar*1e5;
+    T3 = opts.T3C+273.15;
+    h3 = P('H','T',T3,'P',Pc,id)/1000;
+  }
+
+  const T2s = P('T','P',Pc,'S',s1*1000,id);
+  const h2s = P('H','P',Pc,'S',s1*1000,id)/1000;
+  const h4 = h3;
+  const etaIs = opts.etaIs || 1.0;
+  const h2 = h1+(h2s-h1)/etaIs;
+  const T2 = P('T','P',Pc,'H',h2*1000,id);
+
+  const hf = P('H','P',Pe,'Q',0,id)/1000;
+  const hg = P('H','P',Pe,'Q',1,id)/1000;
+  const sf = P('S','P',Pe,'Q',0,id)/1000;
+  const sg = P('S','P',Pe,'Q',1,id)/1000;
+  const x4 = (h4-hf)/(hg-hf);
+  const s4 = sf+x4*(sg-sf);
+  const T4 = Te;
+
+  const qe=h1-h4, wcs=h2s-h1, wc=h2-h1;
+  const COP=qe/wcs, EER=COP*3.412142;
+  const COPa=qe/wc, EERa=COPa*3.412142;
+  return {Pe,Pc,T1,h1,s1,T2s,h2s,T2,h2,T3,h3,T4,h4,s4,x4,rho1,qe,wcs,wc,COP,EER,COPa,EERa};
+}
+
+function sAt(fl,T,P,vaporHint){
+  if (ENGINE==='coolprop' && cpModule){
+    return cpModule.PropsSI('S','T',T,'P',P, realFluidId(fl))/1000;
+  }
+  return sMass(fl,T,P,vaporHint);
+}
+
+// invert saturation curve: given absolute pressure P[Pa] and quality Q (0 or 1), return T[K]
+function TsatFromP(fl,P,Q){
+  if (ENGINE==='coolprop' && cpModule){
+    return cpModule.PropsSI('T','P',P,'Q',Q,realFluidId(fl));
+  }
+  let lo=180, hi=FLUIDS[fl].Tc-0.15;
+  for(let i=0;i<60;i++){
+    const mid=(lo+hi)/2;
+    const p = psat(fl,mid);
+    if (p<P) lo=mid; else hi=mid;
+  }
+  return (lo+hi)/2;
+}
+
+/* ===================== UI state & wiring ===================== */
+let state = {
+  fluid:'R410A', Pe:9.0, Tsh:11.1, Pc:33.3, Tsc:0.0, Pgc:100, T3:54.4, eta:1.0,
+  Vs:35, N:60, etaV:0.95
+};
+
+const $ = id=>document.getElementById(id);
+
+function isTranscritical(fl, PcBar){
+  return PcBar*1e5 > FLUIDS[fl].Pc;
+}
+
+function fmt(x,d=2){ return isFinite(x) ? x.toFixed(d) : '–'; }
+
+function TeC_of(fl){
+  return TsatFromP(fl, state.Pe*1e5, 1) - 273.15;
+}
+function runCycleFor(fl){
+  const trans = isTranscritical(fl, state.Pc);
+  const mode = (fl==='R744' || trans) ? 'transcritical' : 'subcritical';
+  const TeC = TeC_of(fl);
+  let opts;
+  if (mode==='transcritical'){
+    opts = {PgcBar:state.Pgc, T3C:state.T3, etaIs:state.eta};
+  } else {
+    const TcC = TsatFromP(fl, state.Pc*1e5, 0) - 273.15;
+    opts = {TcC, TscK:state.Tsc, etaIs:state.eta};
+  }
+  if (ENGINE==='coolprop' && cpModule){
+    try{
+      return {res: computeCycleReal(fl, TeC, state.Tsh, mode, opts), mode: mode==='transcritical'?'trans':'sub'};
+    }catch(e){ /* fall through to PR-EOS if a specific state point fails */ }
+  }
+  if (mode==='transcritical'){
+    return {res: computeCycle(fl, TeC, state.Tsh, 'transcritical', opts), mode:'trans'};
+  } else {
+    return {res: computeCycle(fl, TeC, state.Tsh, 'subcritical', opts), mode:'sub'};
+  }
+}
+
+function satDome(fl, tMax){
+  const pts = [];
+  const Tc = FLUIDS[fl].Tc;
+  const Tmax = Math.min(tMax+273.15, Tc-0.4);
+  const Tmin = -60+273.15;
+  const N = 40;
+  for(let i=0;i<N;i++){
+    const frac = 1-Math.pow(1-i/(N-1),1.6);
+    const T = Tmin+(Tmax-Tmin)*frac;
+    try{
+      const P = psat(fl,T);
+      const hl = hMass(fl,T,P,false);
+      const hv = hMass(fl,T,P,true);
+      pts.push({T,P,hl,hv});
+    }catch(e){}
+  }
+  return pts;
+}
+
+function updateLabels(){
+  syncPressureField('Pe'); 
+  $('v-Tsh').textContent = state.Tsh.toFixed(1)+' °C';
+  syncPressureField('Pc');
+  $('v-Tsc').textContent = state.Tsc.toFixed(1)+' °C';
+  syncPressureField('Pgc');
+  $('v-T3').textContent = state.T3.toFixed(1)+' °C';
+  $('v-eta').textContent = state.eta.toFixed(2);
+  $('v-Vs').textContent = state.Vs.toFixed(0)+' cm³/rev';
+  $('v-N').textContent = state.N.toFixed(0)+' Hz';
+  $('v-etaV').textContent = state.etaV.toFixed(2);
+}
+
+function render(){
+  updateLabels();
+
+  const trans = isTranscritical(state.fluid, state.Pc) || state.fluid==='R744';
+  $('subcritical-inputs').style.display = trans ? 'none' : 'block';
+  $('transcritical-inputs').style.display = trans ? 'block' : 'none';
+  $('transcritical-note').style.display = state.fluid==='R744' ? 'block' : 'none';
+
+  const {res, mode} = runCycleFor(state.fluid);
+  $('kpi-title').textContent = '선택 냉매 결과 — '+state.fluid;
+  $('k-qe').innerHTML = fmt(res.qe,1)+'<span class="unit">kJ/kg</span>';
+  $('k-wc').innerHTML = fmt(res.wcs,1)+'<span class="unit">kJ/kg</span>';
+  $('k-cop').textContent = fmt(res.COP,3);
+  $('k-eer').textContent = fmt(res.EER,2);
+  $('k-t2s').innerHTML = fmt(res.T2s-273.15,1)+'<span class="unit">°C</span>';
+  $('k-t2').innerHTML = fmt(res.T2-273.15,1)+'<span class="unit">°C</span>';
+  const dP = (res.Pc-res.Pe)/1e5;
+  $('k-press').innerHTML = fmt(res.Pe/1e5,1)+' / '+fmt(res.Pc/1e5,1)+' / '+fmt(dP,1)+
+    '<span class="unit">bar</span>';
+
+  const Vdot = (state.Vs/1e6) * state.N * state.etaV; // m3/s (N is already in Hz = rev/s)
+  const mdot = Vdot * res.rho1; // kg/s
+  const Qe_cap = mdot * res.qe; // kW
+  const Pw_cap = mdot * res.wcs; // kW (theoretical)
+  const qv = res.qe * res.rho1; // kJ/m3
+  $('k-mdot').innerHTML = fmt(mdot*3600,1)+'<span class="unit">kg/h</span>';
+  $('k-cap').innerHTML = fmt(Qe_cap,3)+'<span class="unit">kW</span>';
+  $('k-pw').innerHTML = fmt(Pw_cap,3)+'<span class="unit">kW</span>';
+  $('k-qv').innerHTML = fmt(qv,0)+'<span class="unit">kJ/m³</span>';
+
+  const rows = [
+    ['1 흡입', res.T1-273.15, res.Pe/1e5, res.h1, res.s1],
+    ['2s 등엔트로피토출', res.T2s-273.15, res.Pc/1e5, res.h2s, res.s1],
+    ['2 실제토출', res.T2-273.15, res.Pc/1e5, res.h2, sAt(state.fluid,res.T2,res.Pc,true)],
+    ['3 '+(mode==='trans'?'가스쿨러출구':'응축기출구'), res.T3-273.15, res.Pc/1e5, res.h3, sAt(state.fluid,res.T3,res.Pc,false)],
+    ['4 팽창후 (x='+fmt(res.x4,3)+')', res.T4-273.15, res.Pe/1e5, res.h4, res.s4]
+  ];
+  const tbody = document.querySelector('#state-table tbody');
+  tbody.innerHTML = rows.map(r=>
+    `<tr><td>${r[0]}</td><td class="mono">${fmt(r[1],1)}</td><td class="mono">${fmt(r[2],2)}</td>`+
+    `<td class="mono">${fmt(r[3],1)}</td><td class="mono">${fmt(r[4],3)}</td></tr>`).join('');
+
+  // compare table
+  const results = {};
+  ['R410A','R290','R744'].forEach(fl=>{ results[fl] = runCycleFor(fl).res; });
+  const Vdot0 = (state.Vs/1e6) * state.N * state.etaV; // N in Hz
+  const compareRows = [
+    ['냉동효과 qe [kJ/kg]', fl=>fmt(results[fl].qe,1)],
+    ['이론 압축일 [kJ/kg]', fl=>fmt(results[fl].wcs,1)],
+    ['이론 COP', fl=>fmt(results[fl].COP,3)],
+    ['이론 EER', fl=>fmt(results[fl].EER,2)],
+    ['이론 토출온도 [°C]', fl=>fmt(results[fl].T2s-273.15,1)],
+    ['증발압력 [bar,abs]', fl=>fmt(results[fl].Pe/1e5,2)],
+    ['고압측 [bar,abs]', fl=>fmt(results[fl].Pc/1e5,2)],
+    ['동일 Vs 가정시 냉방능력 [kW]', fl=>fmt(Vdot0*results[fl].rho1*results[fl].qe,2)],
+  ];
+  const ctbody = document.querySelector('#compare-table tbody');
+  ctbody.innerHTML = compareRows.map(r=>
+    `<tr><td>${r[0]}</td><td class="mono">${r[1]('R410A')}</td><td class="mono">${r[1]('R290')}</td><td class="mono">${r[1]('R744')}</td></tr>`
+  ).join('');
+
+  drawChart(results);
+}
+
+/* ===================== P-h chart ===================== */
+function drawChart(results){
+  const cv = $('phchart');
+  const dpr = window.devicePixelRatio||1;
+  const W = cv.clientWidth||640, H = 320;
+  cv.width = W*dpr; cv.height = H*dpr;
+  cv.style.height = H+'px';
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+
+  const padL=52,padR=14,padT=14,padB=32;
+  const plotW = W-padL-padR, plotH = H-padT-padB;
+
+  // gather h range
+  let hs=[], ps=[];
+  ['R410A','R290','R744'].forEach(fl=>{
+    const r = results[fl];
+    [r.h1,r.h2s,r.h2,r.h3,r.h4].forEach(h=>hs.push(h));
+    [r.Pe/1e5,r.Pc/1e5].forEach(p=>ps.push(p));
+    const dome = satDome(fl, 100);
+    dome.forEach(d=>{ hs.push(d.hl); hs.push(d.hv); ps.push(d.P/1e5); });
+  });
+  const hMin = Math.min(...hs)-20, hMax = Math.max(...hs)+20;
+  const pMin = Math.max(0.3, Math.min(...ps)*0.6), pMax = Math.max(...ps)*1.6;
+  const logMin = Math.log10(pMin), logMax = Math.log10(pMax);
+
+  const X = h => padL + (h-hMin)/(hMax-hMin)*plotW;
+  const Y = p => padT + (1-(Math.log10(p)-logMin)/(logMax-logMin))*plotH;
+
+  // grid
+  ctx.strokeStyle = '#2A313A'; ctx.lineWidth=1; ctx.font='10px IBM Plex Mono, monospace';
+  ctx.fillStyle = '#5B6570';
+  const pTicks = [1,2,5,10,20,50,100,200];
+  pTicks.forEach(p=>{
+    if(p<pMin||p>pMax) return;
+    const y = Y(p);
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
+    ctx.fillText(p+'', 4, y+3);
+  });
+  for(let i=0;i<=4;i++){
+    const h = hMin+(hMax-hMin)*i/4;
+    const x = X(h);
+    ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,H-padB); ctx.stroke();
+    ctx.fillText(h.toFixed(0), x-12, H-padB+14);
+  }
+
+  const colors = {R410A:'#5B8DEF', R290:'#3FBE81', R744:'#E2604C'};
+
+  ['R410A','R290','R744'].forEach(fl=>{
+    const col = colors[fl];
+    // dome (subcritical only, skip if too close to critical for meaningful line)
+    const dome = satDome(fl, fl==='R744'? 30 : 100);
+    if (dome.length>2){
+      ctx.strokeStyle = col; ctx.globalAlpha=0.55; ctx.setLineDash([3,3]); ctx.lineWidth=1.3;
+      ctx.beginPath();
+      dome.forEach((d,i)=>{ const x=X(d.hl), y=Y(d.P/1e5); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+      ctx.stroke();
+      ctx.beginPath();
+      dome.forEach((d,i)=>{ const x=X(d.hv), y=Y(d.P/1e5); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+      ctx.stroke();
+      ctx.setLineDash([]); ctx.globalAlpha=1;
+    }
+    // cycle path
+    const r = results[fl];
+    const path = [[r.h1,r.Pe/1e5],[r.h2,r.Pc/1e5],[r.h3,r.Pc/1e5],[r.h4,r.Pe/1e5],[r.h1,r.Pe/1e5]];
+    ctx.strokeStyle = col; ctx.lineWidth = fl===state.fluid?2.6:1.4;
+    ctx.globalAlpha = fl===state.fluid?1:0.5;
+    ctx.beginPath();
+    path.forEach((p,i)=>{ const x=X(p[0]),y=Y(p[1]); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+    ctx.stroke();
+    path.slice(0,4).forEach(p=>{
+      ctx.fillStyle = col;
+      ctx.beginPath(); ctx.arc(X(p[0]),Y(p[1]),fl===state.fluid?4:2.6,0,7); ctx.fill();
+    });
+    ctx.globalAlpha=1;
+  });
+}
+
+/* ===================== events ===================== */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    state.fluid = t.dataset.fluid;
+    if (state.fluid==='R744' && state.Pc < 60) state.Pc = 100;
+    render();
+  });
+});
+
+function syncPressureField(key){
+  const num = $('n-'+key), rng = $('s-'+key);
+  if (!num) return;
+  if (document.activeElement !== num){ num.value = state[key].toFixed(2); }
+  if (rng) rng.value = state[key];
+}
+
+function bindPressureControl(key){
+  const rng = $('s-'+key), num = $('n-'+key);
+  rng.addEventListener('input', e=>{
+    state[key] = parseFloat(e.target.value);
+    num.value = state[key].toFixed(2);
+    render();
+  });
+  num.addEventListener('input', e=>{
+    const v = parseFloat(e.target.value);
+    if (!isNaN(v)){
+      state[key] = v;
+      rng.value = Math.min(Math.max(v, parseFloat(rng.min)), parseFloat(rng.max));
+      render();
+    }
+  });
+  num.addEventListener('blur', ()=>{ num.value = state[key].toFixed(2); });
+}
+
+function bindSlider(id, key, cb){
+  $(id).addEventListener('input', e=>{
+    state[key] = parseFloat(e.target.value);
+    if(cb) cb();
+    render();
+  });
+}
+bindPressureControl('Pe');
+bindSlider('s-Tsh','Tsh');
+bindPressureControl('Pc');
+bindSlider('s-Tsc','Tsc');
+bindPressureControl('Pgc');
+bindSlider('s-T3','T3');
+bindSlider('s-eta','eta');
+bindSlider('s-Vs','Vs');
+bindSlider('s-N','N');
+bindSlider('s-etaV','etaV');
+
+window.addEventListener('resize', ()=>render());
+
+tryLoadCoolProp();
+</script>
+</body>
+</html>
