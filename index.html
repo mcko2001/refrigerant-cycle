@@ -141,10 +141,10 @@
     </button>
     <div class="fluid-menu" id="fluid-menu">
       <div class="fluid-option" data-fluid="R410A"><span class="fluid-dot" style="background:var(--r410a)"></span>R410A</div>
+      <div class="fluid-option" data-fluid="R32"><span class="fluid-dot" style="background:var(--r32)"></span>R32</div>
+      <div class="fluid-option" data-fluid="R1234yf"><span class="fluid-dot" style="background:var(--r1234yf)"></span>R1234yf</div>
       <div class="fluid-option" data-fluid="R290"><span class="fluid-dot" style="background:var(--r290)"></span>R290 (프로판)</div>
       <div class="fluid-option" data-fluid="R744"><span class="fluid-dot" style="background:var(--r744)"></span>R744 (CO2)</div>
-      <div class="fluid-option" data-fluid="R1234yf"><span class="fluid-dot" style="background:var(--r1234yf)"></span>R1234yf</div>
-      <div class="fluid-option" data-fluid="R32"><span class="fluid-dot" style="background:var(--r32)"></span>R32</div>
     </div>
   </div>
 
@@ -185,9 +185,9 @@
         </div>
         <div class="slider-block">
           <div class="slider-head"><span class="name">응축기 출구 과냉도 ΔTsc</span>
-            <span><input type="number" class="num-input mono" id="n-Tsc" value="0.0" step="0.1" min="0" max="15"> °C</span>
+            <span><input type="number" class="num-input mono" id="n-Tsc" value="8.3" step="0.1" min="0" max="15"> °C</span>
           </div>
-          <input type="range" id="s-Tsc" min="0" max="15" step="0.1" value="0">
+          <input type="range" id="s-Tsc" min="0" max="15" step="0.1" value="8.3">
         </div>
       </div>
 
@@ -264,10 +264,10 @@
       <canvas id="phchart" width="640" height="440"></canvas>
       <div class="legend">
         <div class="legend-item"><span class="legend-line" style="background:var(--r410a)"></span>R410A</div>
+        <div class="legend-item"><span class="legend-line" style="background:var(--r32)"></span>R32</div>
+        <div class="legend-item"><span class="legend-line" style="background:var(--r1234yf)"></span>R1234yf</div>
         <div class="legend-item"><span class="legend-line" style="background:var(--r290)"></span>R290</div>
         <div class="legend-item"><span class="legend-line" style="background:var(--r744)"></span>R744</div>
-        <div class="legend-item"><span class="legend-line" style="background:var(--r1234yf)"></span>R1234yf</div>
-        <div class="legend-item"><span class="legend-line" style="background:var(--r32)"></span>R32</div>
       </div>
       <div class="note">점선 = 포화선(아임계 구간만). 세로축 로그(bar). 원형마커 = 압축기 사이클 상태점 1→2→3→4.</div>
     </div>
@@ -280,10 +280,10 @@
           <tr>
             <th></th>
             <th><span class="fluid-hdr"><span class="swatch" style="background:var(--r410a)"></span>R410A</span></th>
+            <th><span class="fluid-hdr"><span class="swatch" style="background:var(--r32)"></span>R32</span></th>
+            <th><span class="fluid-hdr"><span class="swatch" style="background:var(--r1234yf)"></span>R1234yf</span></th>
             <th><span class="fluid-hdr"><span class="swatch" style="background:var(--r290)"></span>R290</span></th>
             <th><span class="fluid-hdr"><span class="swatch" style="background:var(--r744)"></span>R744</span></th>
-            <th><span class="fluid-hdr"><span class="swatch" style="background:var(--r1234yf)"></span>R1234yf</span></th>
-            <th><span class="fluid-hdr"><span class="swatch" style="background:var(--r32)"></span>R32</span></th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -616,7 +616,7 @@ function TsatFromP(fl,P,Q){
 
 /* ===================== UI state & wiring ===================== */
 let state = {
-  fluid:'R410A', Pe:9.0, Tsh:11.1, Pc:33.3, Tsc:0.0, Pgc:100, T3:54.4, eta:1.0,
+  fluid:'R410A', Pe:9.0, Tsh:11.1, Pc:33.3, Tsc:8.3, Pgc:100, T3:54.4, eta:1.0,
   Vs:35, N:60, etaV:0.95
 };
 
@@ -750,7 +750,7 @@ function render(){
 
   // compare table
   const results = {};
-  ['R410A','R290','R744','R1234yf','R32'].forEach(fl=>{ results[fl] = runCycleFor(fl).res; });
+  ['R410A','R32','R1234yf','R290','R744'].forEach(fl=>{ results[fl] = runCycleFor(fl).res; });
   const Vdot0 = (state.Vs/1e6) * state.N * state.etaV; // N in Hz
   const compareRows = [
     ['냉동효과 qe [kJ/kg]', fl=>fmt(results[fl].qe,1)],
@@ -764,7 +764,7 @@ function render(){
   ];
   const ctbody = document.querySelector('#compare-table tbody');
   ctbody.innerHTML = compareRows.map(r=>
-    `<tr><td>${r[0]}</td><td class="mono">${r[1]('R410A')}</td><td class="mono">${r[1]('R290')}</td><td class="mono">${r[1]('R744')}</td><td class="mono">${r[1]('R1234yf')}</td><td class="mono">${r[1]('R32')}</td></tr>`
+    `<tr><td>${r[0]}</td><td class="mono">${r[1]('R410A')}</td><td class="mono">${r[1]('R32')}</td><td class="mono">${r[1]('R1234yf')}</td><td class="mono">${r[1]('R290')}</td><td class="mono">${r[1]('R744')}</td></tr>`
   ).join('');
 
   drawChart(results);
@@ -786,7 +786,7 @@ function drawChart(results){
 
   // gather h range
   let hs=[], ps=[];
-  ['R410A','R290','R744','R1234yf','R32'].forEach(fl=>{
+  ['R410A','R32','R1234yf','R290','R744'].forEach(fl=>{
     const r = results[fl];
     [r.h1,r.h2s,r.h2,r.h3,r.h4].forEach(h=>hs.push(h));
     [r.Pe/1e5,r.Pc/1e5].forEach(p=>ps.push(p));
@@ -819,7 +819,7 @@ function drawChart(results){
 
   const colors = {R410A:'#5B8DEF', R290:'#3FBE81', R744:'#E2604C', R1234yf:'#D9A441', R32:'#B073E0'};
 
-  ['R410A','R290','R744','R1234yf','R32'].forEach(fl=>{
+  ['R410A','R32','R1234yf','R290','R744'].forEach(fl=>{
     const col = colors[fl];
     // dome (subcritical only, skip if too close to critical for meaningful line)
     const dome = satDome(fl, fl==='R744'? 30 : 100);
