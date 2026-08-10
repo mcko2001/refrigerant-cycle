@@ -158,9 +158,9 @@
       <div id="subcritical-inputs">
         <div class="slider-block">
           <div class="slider-head"><span class="name">응축압력 Pc (절대압)</span>
-            <span><input type="number" class="num-input mono" id="n-Pc" value="33.30" step="0.01" min="5" max="48"> bar</span>
+            <span><input type="number" class="num-input mono" id="n-Pc" value="33.30" step="0.01" min="5" max="40"> bar</span>
           </div>
-          <input type="range" id="s-Pc" min="5" max="48" step="0.01" value="33.30">
+          <input type="range" id="s-Pc" min="5" max="40" step="0.01" value="33.30">
         </div>
         <div class="slider-block">
           <div class="slider-head"><span class="name">응축기 출구 과냉도 ΔTsc</span>
@@ -601,8 +601,12 @@ function TeC_of(fl){
   return TsatFromP(fl, state.Pe*1e5, 1) - 273.15;
 }
 function runCycleFor(fl){
-  const trans = isTranscritical(fl, state.Pc);
-  const mode = (fl==='R744' || trans) ? 'transcritical' : 'subcritical';
+  // Only R744 is treated as transcritical in this tool. R410A/R290 always
+  // use the subcritical Pc/ΔTsc path — auto-detecting transcritical for them
+  // from a shared Pc value caused an unrecoverable UI state (no way back to
+  // the Pc slider once hidden). If someone truly needs R410A/R290 above
+  // their critical pressure, that's out of scope here.
+  const mode = (fl==='R744') ? 'transcritical' : 'subcritical';
   const TeC = TeC_of(fl);
   let opts;
   if (mode==='transcritical'){
@@ -658,7 +662,7 @@ function updateLabels(){
 function render(){
   updateLabels();
 
-  const trans = isTranscritical(state.fluid, state.Pc) || state.fluid==='R744';
+  const trans = state.fluid==='R744';
   $('subcritical-inputs').style.display = trans ? 'none' : 'block';
   $('transcritical-inputs').style.display = trans ? 'block' : 'none';
   $('transcritical-note').style.display = state.fluid==='R744' ? 'block' : 'none';
