@@ -158,9 +158,10 @@
       <div id="subcritical-inputs">
         <div class="slider-block">
           <div class="slider-head"><span class="name">응축압력 Pc (절대압)</span>
-            <span><input type="number" class="num-input mono" id="n-Pc" value="33.30" step="0.01" min="5" max="40"> bar</span>
+            <span><input type="number" class="num-input mono" id="n-Pc" value="33.30" step="0.01" min="5" max="48"> bar</span>
           </div>
-          <input type="range" id="s-Pc" min="5" max="40" step="0.01" value="33.30">
+          <input type="range" id="s-Pc" min="5" max="48" step="0.01" value="33.30">
+          <div class="note" id="pc-ceiling-note" style="margin-top:6px"></div>
         </div>
         <div class="slider-block">
           <div class="slider-head"><span class="name">응축기 출구 과냉도 ΔTsc</span>
@@ -612,7 +613,9 @@ function runCycleFor(fl){
   if (mode==='transcritical'){
     opts = {PgcBar:state.Pgc, T3C:state.T3, etaIs:state.eta};
   } else {
-    const TcC = TsatFromP(fl, state.Pc*1e5, 0) - 273.15;
+    const critBar = FLUIDS[fl].Pc/1e5;
+    const safePcBar = Math.min(state.Pc, critBar*0.98); // stay just under this fluid's own critical pressure
+    const TcC = TsatFromP(fl, safePcBar*1e5, 0) - 273.15;
     opts = {TcC, TscK:state.Tsc, etaIs:state.eta};
   }
   if (ENGINE==='coolprop' && cpModule){
@@ -666,6 +669,15 @@ function render(){
   $('subcritical-inputs').style.display = trans ? 'none' : 'block';
   $('transcritical-inputs').style.display = trans ? 'block' : 'none';
   $('transcritical-note').style.display = state.fluid==='R744' ? 'block' : 'none';
+
+  if (!trans){
+    const critBar = FLUIDS[state.fluid].Pc/1e5;
+    const ceilBar = Math.floor(critBar*0.98*100)/100; // just under this fluid's critical pressure
+    $('s-Pc').max = ceilBar;
+    $('n-Pc').max = ceilBar;
+    $('pc-ceiling-note').textContent =
+      state.fluid+' 임계압력 '+critBar.toFixed(1)+'bar(abs) 아래로 제한됩니다 (최대 '+ceilBar.toFixed(2)+'bar).';
+  }
 
   const {res, mode} = runCycleFor(state.fluid);
   $('kpi-title').textContent = '선택 냉매 결과 — '+state.fluid;
@@ -808,7 +820,15 @@ document.querySelectorAll('.tab').forEach(t=>{
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
     t.classList.add('active');
     state.fluid = t.dataset.fluid;
-    if (state.fluid==='R744' && state.Pc < 60) state.Pc = 100;
+    // keep Pc sane for the newly selected tab (avoids a stale R744 Pc
+    // leaking into R410A/R290's subcritical range, or vice versa)
+    if (state.fluid==='R744'){
+      if (state.Pgc < 60) state.Pgc = 100;
+    } else {
+      const critBar = FLUIDS[state.fluid].Pc/1e5;
+      const ceilBar = Math.floor(critBar*0.98*100)/100;
+      if (state.Pc > ceilBar || state.Pc < 5) state.Pc = Math.min(33.3, ceilBar);
+    }
     render();
   });
 });
