@@ -100,6 +100,35 @@
   .warn{font-size:11.5px; color:#E2A03F; line-height:1.55; background:rgba(226,160,63,.08);
     border:1px solid rgba(226,160,63,.25); border-radius:9px; padding:9px 11px; margin-top:10px;}
 
+  .cond-picker{position:relative; margin-bottom:16px;}
+  .cond-picker-inner{
+    display:flex; align-items:center; gap:10px; width:100%;
+    background:var(--panel2); border:1.5px solid var(--border); border-radius:12px;
+    padding:13px 14px; transition:border-color .15s;
+    font-family:inherit; font-size:14.5px; font-weight:600; color:var(--text);
+    cursor:pointer; text-align:left;
+  }
+  .cond-picker-inner .cond-name{flex:1;}
+  .cond-picker-inner .cond-sub{font-size:11px; font-weight:400; color:var(--text-faint);}
+  .cond-caret{color:var(--text-faint); font-size:12px; flex:none; transition:transform .15s;}
+  .cond-caret.open{transform:rotate(180deg);}
+  .cond-menu{
+    position:absolute; left:0; right:0; top:100%; margin-top:6px; z-index:20;
+    background:var(--panel2); border:1px solid var(--border); border-radius:12px;
+    overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.4);
+    display:none;
+  }
+  .cond-menu.open{display:block;}
+  .cond-option{
+    display:flex; flex-direction:column; gap:2px; padding:12px 14px;
+    font-size:14px; color:var(--text); cursor:pointer; border-bottom:1px solid var(--border);
+  }
+  .cond-option:last-child{border-bottom:none;}
+  .cond-option:active{background:rgba(255,255,255,.06);}
+  .cond-option .cond-detail{font-size:11px; color:var(--text-faint); font-weight:400;}
+  .cond-option.disabled{color:var(--text-faint); cursor:default;}
+  .cond-option.disabled:active{background:none;}
+
   .kpi-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .kpi{background:var(--panel2); border:1px solid var(--border); border-radius:11px; padding:12px;}
   .kpi .label{font-size:11px; color:var(--text-dim); margin-bottom:5px;}
@@ -162,11 +191,25 @@
   <section>
     <div class="card">
       <h2>운전 조건</h2>
+      <div class="cond-picker">
+        <button type="button" class="cond-picker-inner" id="cond-btn">
+          <span class="cond-name" id="cond-name">평가조건 선택</span>
+          <span class="cond-caret" id="cond-caret">▾</span>
+        </button>
+        <div class="cond-menu" id="cond-menu">
+          <div class="cond-option" data-cond="ari">
+            <span>ARI</span><span class="cond-detail">Ps 10.15 / Ts 18.3 / Pd 34.46 / Tvi 46.1</span>
+          </div>
+          <div class="cond-option" data-cond="cheer">
+            <span>CHEER</span><span class="cond-detail">Ps 10.15 / Ts 18.3 / Pd 23.34 / Tvi 29.5</span>
+          </div>
+        </div>
+      </div>
       <div class="slider-block">
         <div class="slider-head"><span class="name">증발압력 Pe (절대압)</span>
-          <span><input type="number" class="num-input mono" id="n-Pe" value="9.00" step="0.01" min="1" max="50"> bar</span>
+          <span><input type="number" class="num-input mono" id="n-Pe" value="10.15" step="0.01" min="1" max="50"> bar</span>
         </div>
-        <input type="range" id="s-Pe" min="1" max="50" step="0.01" value="9.00">
+        <input type="range" id="s-Pe" min="1" max="50" step="0.01" value="10.15">
       </div>
       <div class="slider-block">
         <div class="slider-head"><span class="name">흡입 과열도 ΔTsh</span>
@@ -617,7 +660,7 @@ function TsatFromP(fl,P,Q){
 
 /* ===================== UI state & wiring ===================== */
 let state = {
-  fluid:'R410A', Pe:9.0, Tsh:11.1, Pc:33.3, Tsc:8.3, Pgc:100, T3:54.4, eta:1.0,
+  fluid:'R410A', Pe:10.15, Tsh:11.1, Pc:33.3, Tsc:8.3, Pgc:100, T3:54.4, eta:1.0,
   Vs:35, N:60, etaV:0.95
 };
 
@@ -867,6 +910,47 @@ fluidBtn.addEventListener('click', e=>{
   e.stopPropagation();
   toggleFluidMenu();
 });
+
+/* ===================== ARI / CHEER presets =====================
+   Ps, Pd : absolute suction/discharge pressure [bar,abs]
+   Ts     : absolute suction (return gas) temperature [°C] — fixed regardless of fluid
+   Tvi    : absolute liquid-line temperature after subcooling [°C]
+   ΔTsh/ΔTsc are derived at click-time from whichever engine (real CoolProp or
+   PR-EOS fallback) and whichever fluid is currently selected, so switching
+   fluids first and then applying a preset gives that fluid's correct ΔTsh/ΔTsc
+   for the same absolute Ps/Ts/Pd/Tvi condition. */
+const PRESETS = {
+  ari:   {Ps:10.15, Ts:18.3, Pd:34.46, Tvi:46.1},
+  cheer: {Ps:10.15, Ts:18.3, Pd:23.34, Tvi:29.5},
+};
+
+function applyPreset(name){
+  const p = PRESETS[name];
+  const TeDewC = TsatFromP(state.fluid, p.Ps*1e5, 1) - 273.15;
+  const TcBubC = TsatFromP(state.fluid, p.Pd*1e5, 0) - 273.15;
+  state.Pe = p.Ps;
+  state.Pc = p.Pd;
+  state.Tsh = p.Ts - TeDewC;
+  state.Tsc = TcBubC - p.Tvi;
+  render();
+}
+const condBtn = document.getElementById('cond-btn');
+const condMenu = document.getElementById('cond-menu');
+const condCaret = document.getElementById('cond-caret');
+function closeCondMenu(){ condMenu.classList.remove('open'); condCaret.classList.remove('open'); }
+function toggleCondMenu(){ condMenu.classList.toggle('open'); condCaret.classList.toggle('open'); }
+condBtn.addEventListener('click', e=>{ e.stopPropagation(); toggleCondMenu(); });
+condMenu.addEventListener('click', e=>e.stopPropagation());
+document.querySelectorAll('.cond-option').forEach(opt=>{
+  opt.addEventListener('click', ()=>{
+    const key = opt.dataset.cond;
+    if (!key) return; // disabled placeholder — no data yet
+    applyPreset(key);
+    document.getElementById('cond-name').textContent = opt.querySelector('span').textContent;
+    closeCondMenu();
+  });
+});
+document.addEventListener('click', ()=>closeCondMenu());
 document.querySelectorAll('.fluid-option').forEach(opt=>{
   opt.addEventListener('click', ()=>{
     state.fluid = opt.dataset.fluid;
