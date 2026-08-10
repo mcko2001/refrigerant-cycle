@@ -10,7 +10,7 @@
   :root{
     --bg:#12161B; --panel:#1B2027; --panel2:#20262E; --border:#2A313A;
     --text:#E7ECEF; --text-dim:#8C97A3; --text-faint:#5B6570;
-    --r410a:#5B8DEF; --r290:#3FBE81; --r744:#E2604C; --r1234yf:#D9A441;
+    --r410a:#5B8DEF; --r290:#3FBE81; --r744:#E2604C; --r1234yf:#D9A441; --r32:#B073E0;
     --focus:#F2C34C;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
@@ -29,23 +29,19 @@
   header h1{font-size:17px; font-weight:600; margin:0 0 3px; letter-spacing:.01em;}
   header p{margin:0; font-size:12.5px; color:var(--text-dim); line-height:1.5;}
 
-  .tabs{display:flex; gap:8px; padding:14px 18px 0;}
-  .tab{
-    flex:1; padding:11px 6px; border-radius:10px; border:1px solid var(--border);
-    background:var(--panel); color:var(--text-dim); font-size:13.5px; font-weight:600;
-    cursor:pointer; transition:background .15s, color .15s, border-color .15s;
-    text-align:center;
+  .fluid-picker{padding:14px 18px 0;}
+  .fluid-picker-inner{
+    display:flex; align-items:center; gap:10px;
+    background:var(--panel); border:1.5px solid var(--border); border-radius:12px;
+    padding:12px 14px; transition:border-color .15s;
   }
-  .tab .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:middle;}
-  .tab[data-fluid="R410A"] .dot{background:var(--r410a);}
-  .tab[data-fluid="R290"] .dot{background:var(--r290);}
-  .tab[data-fluid="R744"] .dot{background:var(--r744);}
-  .tab[data-fluid="R1234yf"] .dot{background:var(--r1234yf);}
-  .tab.active{color:var(--text); border-color:currentColor;}
-  .tab.active[data-fluid="R410A"]{border-color:var(--r410a); background:rgba(91,141,239,.10);}
-  .tab.active[data-fluid="R290"]{border-color:var(--r290); background:rgba(63,190,129,.10);}
-  .tab.active[data-fluid="R744"]{border-color:var(--r744); background:rgba(226,96,76,.10);}
-  .tab.active[data-fluid="R1234yf"]{border-color:var(--r1234yf); background:rgba(217,164,65,.10);}
+  .fluid-dot{width:12px; height:12px; border-radius:50%; flex:none; transition:background .15s;}
+  #fluid-select{
+    flex:1; appearance:none; -webkit-appearance:none; background:transparent; border:none;
+    color:var(--text); font-family:inherit; font-size:15px; font-weight:600; padding:2px 0;
+  }
+  #fluid-select option{background:var(--panel); color:var(--text);}
+  .fluid-caret{color:var(--text-faint); font-size:12px; flex:none;}
 
   section{padding:18px 18px 0;}
   .card{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px;}
@@ -124,11 +120,18 @@
     <p>R410A · R290 · R744 — Peng-Robinson 상태방정식 기반 자체 계산 엔진 (인터넷 연결·애드인 불필요)</p>
   </header>
 
-  <div class="tabs" id="tabs" style="flex-wrap:wrap; row-gap:8px;">
-    <div class="tab active" data-fluid="R410A"><span class="dot"></span>R410A</div>
-    <div class="tab" data-fluid="R290"><span class="dot"></span>R290</div>
-    <div class="tab" data-fluid="R744"><span class="dot"></span>R744</div>
-    <div class="tab" data-fluid="R1234yf" style="flex-basis:100%"><span class="dot"></span>R1234yf</div>
+  <div class="fluid-picker">
+    <div class="fluid-picker-inner">
+      <span class="fluid-dot" id="fluid-dot"></span>
+      <select id="fluid-select">
+        <option value="R410A">R410A</option>
+        <option value="R290">R290 (프로판)</option>
+        <option value="R744">R744 (CO2)</option>
+        <option value="R1234yf">R1234yf</option>
+        <option value="R32">R32</option>
+      </select>
+      <span class="fluid-caret">▾</span>
+    </div>
   </div>
 
   <section>
@@ -248,6 +251,7 @@
         <div class="legend-item"><span class="legend-line" style="background:var(--r290)"></span>R290</div>
         <div class="legend-item"><span class="legend-line" style="background:var(--r744)"></span>R744</div>
         <div class="legend-item"><span class="legend-line" style="background:var(--r1234yf)"></span>R1234yf</div>
+        <div class="legend-item"><span class="legend-line" style="background:var(--r32)"></span>R32</div>
       </div>
       <div class="note">점선 = 포화선(아임계 구간만). 세로축 로그(bar). 원형마커 = 압축기 사이클 상태점 1→2→3→4.</div>
     </div>
@@ -263,6 +267,7 @@
             <th><span class="fluid-hdr"><span class="swatch" style="background:var(--r290)"></span>R290</span></th>
             <th><span class="fluid-hdr"><span class="swatch" style="background:var(--r744)"></span>R744</span></th>
             <th><span class="fluid-hdr"><span class="swatch" style="background:var(--r1234yf)"></span>R1234yf</span></th>
+            <th><span class="fluid-hdr"><span class="swatch" style="background:var(--r32)"></span>R32</span></th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -294,7 +299,9 @@ const FLUIDS = {
   R744:  {Tc:304.13, Pc:7377e3, omega:0.22394, M:0.04401,
           cpA:5.457, cpB:1.045e-3, cpC:0.0, cpD:-1.157e5, color:'--r744', label:'R744'},
   R1234yf: {Tc:367.85, Pc:3382.2e3, omega:0.276, M:0.11404,
-          cpA:0.700, cpB:0.03916, cpC:0.0, cpD:0.0, color:'--r1234yf', label:'R1234yf'}
+          cpA:0.700, cpB:0.03916, cpC:0.0, cpD:0.0, color:'--r1234yf', label:'R1234yf'},
+  R32: {Tc:351.26, Pc:5784e3, omega:0.2768, M:0.052024,
+          cpA:-0.505, cpB:0.01789, cpC:0.0, cpD:0.0, color:'--r32', label:'R32'}
 };
 const T0 = 273.15, P0 = 1e5;
 
@@ -722,7 +729,7 @@ function render(){
 
   // compare table
   const results = {};
-  ['R410A','R290','R744','R1234yf'].forEach(fl=>{ results[fl] = runCycleFor(fl).res; });
+  ['R410A','R290','R744','R1234yf','R32'].forEach(fl=>{ results[fl] = runCycleFor(fl).res; });
   const Vdot0 = (state.Vs/1e6) * state.N * state.etaV; // N in Hz
   const compareRows = [
     ['냉동효과 qe [kJ/kg]', fl=>fmt(results[fl].qe,1)],
@@ -736,7 +743,7 @@ function render(){
   ];
   const ctbody = document.querySelector('#compare-table tbody');
   ctbody.innerHTML = compareRows.map(r=>
-    `<tr><td>${r[0]}</td><td class="mono">${r[1]('R410A')}</td><td class="mono">${r[1]('R290')}</td><td class="mono">${r[1]('R744')}</td><td class="mono">${r[1]('R1234yf')}</td></tr>`
+    `<tr><td>${r[0]}</td><td class="mono">${r[1]('R410A')}</td><td class="mono">${r[1]('R290')}</td><td class="mono">${r[1]('R744')}</td><td class="mono">${r[1]('R1234yf')}</td><td class="mono">${r[1]('R32')}</td></tr>`
   ).join('');
 
   drawChart(results);
@@ -758,7 +765,7 @@ function drawChart(results){
 
   // gather h range
   let hs=[], ps=[];
-  ['R410A','R290','R744','R1234yf'].forEach(fl=>{
+  ['R410A','R290','R744','R1234yf','R32'].forEach(fl=>{
     const r = results[fl];
     [r.h1,r.h2s,r.h2,r.h3,r.h4].forEach(h=>hs.push(h));
     [r.Pe/1e5,r.Pc/1e5].forEach(p=>ps.push(p));
@@ -789,9 +796,9 @@ function drawChart(results){
     ctx.fillText(h.toFixed(0), x-12, H-padB+14);
   }
 
-  const colors = {R410A:'#5B8DEF', R290:'#3FBE81', R744:'#E2604C', R1234yf:'#D9A441'};
+  const colors = {R410A:'#5B8DEF', R290:'#3FBE81', R744:'#E2604C', R1234yf:'#D9A441', R32:'#B073E0'};
 
-  ['R410A','R290','R744','R1234yf'].forEach(fl=>{
+  ['R410A','R290','R744','R1234yf','R32'].forEach(fl=>{
     const col = colors[fl];
     // dome (subcritical only, skip if too close to critical for meaningful line)
     const dome = satDome(fl, fl==='R744'? 30 : 100);
