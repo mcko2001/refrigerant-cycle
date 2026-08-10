@@ -218,8 +218,10 @@
     <div class="card">
       <h2>압축기 제원 (냉방능력 산출용)</h2>
       <div class="slider-block">
-        <div class="slider-head"><span class="name">행정체적 Vs</span><span class="num mono" id="v-Vs">35 cm³/rev</span></div>
-        <input type="range" id="s-Vs" min="5" max="120" step="1" value="35">
+        <div class="slider-head"><span class="name">행정체적 Vs</span>
+          <span><input type="number" class="num-input mono" id="n-Vs" value="35.0" step="0.1" min="5" max="120"> cm³/rev</span>
+        </div>
+        <input type="range" id="s-Vs" min="5" max="120" step="0.1" value="35.0">
       </div>
       <div class="slider-block">
         <div class="slider-head"><span class="name">회전 속도 f</span><span class="num mono" id="v-N">60 Hz</span></div>
@@ -685,7 +687,7 @@ function updateLabels(){
   syncPressureField('Pgc');
   syncNumField('T3',1);
   $('v-eta').textContent = state.eta.toFixed(2);
-  $('v-Vs').textContent = state.Vs.toFixed(0)+' cm³/rev';
+  syncNumField('Vs',1);
   $('v-N').textContent = state.N.toFixed(0)+' Hz';
   $('v-etaV').textContent = state.etaV.toFixed(2);
 }
@@ -730,7 +732,7 @@ function render(){
   const Pw_cap = mdot * res.wcs; // kW (theoretical)
   const qv = res.qe * res.rho1; // kJ/m3
   $('k-mdot').innerHTML = fmt(mdot*3600,1)+'<span class="unit">kg/h</span>';
-  $('k-cap').innerHTML = fmt(Qe_cap,3)+'<span class="unit">kW</span>';
+  $('k-cap').innerHTML = fmt(Qe_cap,3)+'<span class="unit">kW</span>  ('+fmt(Qe_cap*1.341022,2)+' hp)';
   $('k-pw').innerHTML = fmt(Pw_cap,3)+'<span class="unit">kW</span>';
   $('k-qv').innerHTML = fmt(qv,0)+'<span class="unit">kJ/m³</span>';
 
@@ -947,7 +949,7 @@ bindDualControl('Tsc',1);
 bindPressureControl('Pgc');
 bindDualControl('T3',1);
 bindSlider('s-eta','eta');
-bindSlider('s-Vs','Vs');
+bindDualControl('Vs',1);
 bindSlider('s-N','N');
 bindSlider('s-etaV','etaV');
 
