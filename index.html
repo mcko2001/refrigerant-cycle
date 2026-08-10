@@ -29,19 +29,32 @@
   header h1{font-size:17px; font-weight:600; margin:0 0 3px; letter-spacing:.01em;}
   header p{margin:0; font-size:12.5px; color:var(--text-dim); line-height:1.5;}
 
-  .fluid-picker{padding:14px 18px 0;}
+  .fluid-picker{padding:14px 18px 0; position:relative;}
   .fluid-picker-inner{
-    display:flex; align-items:center; gap:10px;
+    display:flex; align-items:center; gap:10px; width:100%;
     background:var(--panel); border:1.5px solid var(--border); border-radius:12px;
-    padding:12px 14px; transition:border-color .15s;
+    padding:14px; transition:border-color .15s;
+    font-family:inherit; font-size:15px; font-weight:600; color:var(--text);
+    cursor:pointer; text-align:left;
   }
   .fluid-dot{width:12px; height:12px; border-radius:50%; flex:none; transition:background .15s;}
-  #fluid-select{
-    flex:1; appearance:none; -webkit-appearance:none; background:transparent; border:none;
-    color:var(--text); font-family:inherit; font-size:15px; font-weight:600; padding:2px 0;
+  .fluid-picker-inner .fluid-name{flex:1;}
+  .fluid-caret{color:var(--text-faint); font-size:12px; flex:none; transition:transform .15s;}
+  .fluid-caret.open{transform:rotate(180deg);}
+  .fluid-menu{
+    position:absolute; left:18px; right:18px; top:100%; margin-top:6px; z-index:20;
+    background:var(--panel2); border:1px solid var(--border); border-radius:12px;
+    overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.4);
+    display:none;
   }
-  #fluid-select option{background:var(--panel); color:var(--text);}
-  .fluid-caret{color:var(--text-faint); font-size:12px; flex:none;}
+  .fluid-menu.open{display:block;}
+  .fluid-option{
+    display:flex; align-items:center; gap:10px; padding:13px 14px;
+    font-size:14.5px; color:var(--text); cursor:pointer; border-bottom:1px solid var(--border);
+  }
+  .fluid-option:last-child{border-bottom:none;}
+  .fluid-option:active{background:rgba(255,255,255,.06);}
+  .fluid-option .fluid-dot{width:10px; height:10px;}
 
   section{padding:18px 18px 0;}
   .card{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px;}
@@ -121,16 +134,17 @@
   </header>
 
   <div class="fluid-picker">
-    <div class="fluid-picker-inner">
+    <button type="button" class="fluid-picker-inner" id="fluid-btn">
       <span class="fluid-dot" id="fluid-dot"></span>
-      <select id="fluid-select">
-        <option value="R410A">R410A</option>
-        <option value="R290">R290 (프로판)</option>
-        <option value="R744">R744 (CO2)</option>
-        <option value="R1234yf">R1234yf</option>
-        <option value="R32">R32</option>
-      </select>
-      <span class="fluid-caret">▾</span>
+      <span class="fluid-name" id="fluid-name">R410A</span>
+      <span class="fluid-caret" id="fluid-caret">▾</span>
+    </button>
+    <div class="fluid-menu" id="fluid-menu">
+      <div class="fluid-option" data-fluid="R410A"><span class="fluid-dot" style="background:var(--r410a)"></span>R410A</div>
+      <div class="fluid-option" data-fluid="R290"><span class="fluid-dot" style="background:var(--r290)"></span>R290 (프로판)</div>
+      <div class="fluid-option" data-fluid="R744"><span class="fluid-dot" style="background:var(--r744)"></span>R744 (CO2)</div>
+      <div class="fluid-option" data-fluid="R1234yf"><span class="fluid-dot" style="background:var(--r1234yf)"></span>R1234yf</div>
+      <div class="fluid-option" data-fluid="R32"><span class="fluid-dot" style="background:var(--r32)"></span>R32</div>
     </div>
   </div>
 
@@ -679,6 +693,11 @@ function updateLabels(){
 function render(){
   updateLabels();
 
+  const fluidColor = getComputedStyle(document.documentElement).getPropertyValue(FLUIDS[state.fluid].color).trim();
+  $('fluid-dot').style.background = fluidColor;
+  $('fluid-name').textContent = FLUIDS[state.fluid].label;
+  $('fluid-btn').style.borderColor = fluidColor;
+
   const trans = state.fluid==='R744';
   $('subcritical-inputs').style.display = trans ? 'none' : 'block';
   $('transcritical-inputs').style.display = trans ? 'block' : 'none';
@@ -829,13 +848,28 @@ function drawChart(results){
 }
 
 /* ===================== events ===================== */
-document.querySelectorAll('.tab').forEach(t=>{
-  t.addEventListener('click', ()=>{
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
-    t.classList.add('active');
-    state.fluid = t.dataset.fluid;
-    // keep Pc sane for the newly selected tab (avoids a stale R744 Pc
-    // leaking into R410A/R290's subcritical range, or vice versa)
+const fluidBtn = document.getElementById('fluid-btn');
+const fluidMenu = document.getElementById('fluid-menu');
+const fluidCaret = document.getElementById('fluid-caret');
+
+function closeFluidMenu(){
+  fluidMenu.classList.remove('open');
+  fluidCaret.classList.remove('open');
+}
+function toggleFluidMenu(){
+  fluidMenu.classList.toggle('open');
+  fluidCaret.classList.toggle('open');
+}
+fluidBtn.addEventListener('click', e=>{
+  e.stopPropagation();
+  toggleFluidMenu();
+});
+document.querySelectorAll('.fluid-option').forEach(opt=>{
+  opt.addEventListener('click', ()=>{
+    state.fluid = opt.dataset.fluid;
+    closeFluidMenu();
+    // keep Pc sane for the newly selected fluid (avoids a stale R744 Pc
+    // leaking into R410A/R290/R1234yf/R32's subcritical range, or vice versa)
     if (state.fluid==='R744'){
       if (state.Pgc < 60) state.Pgc = 100;
     } else {
@@ -846,6 +880,8 @@ document.querySelectorAll('.tab').forEach(t=>{
     render();
   });
 });
+document.addEventListener('click', ()=>closeFluidMenu());
+fluidMenu.addEventListener('click', e=>e.stopPropagation());
 
 function syncPressureField(key){
   const num = $('n-'+key), rng = $('s-'+key);
