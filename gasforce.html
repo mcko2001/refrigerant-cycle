@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>스크롤 가스력 해석 · 대수나선</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#12161B; --panel:#1B2027; --panel2:#20262E; --border:#2A313A;
+    --text:#E7ECEF; --text-dim:#8C97A3; --text-faint:#5B6570;
+    --r410a:#5B8DEF; --r290:#3FBE81; --r744:#E2604C; --r1234yf:#D9A441; --r32:#B073E0;
+    --focus:#F2C34C;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+    font-family:'IBM Plex Sans KR',system-ui,sans-serif; -webkit-font-smoothing:antialiased;}
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important; animation:none !important;} }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  button, input{ font-family:inherit; }
+  button:focus-visible, input:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+  .wrap{max-width:720px;margin:0 auto;padding:0 0 48px;}
+  header{padding:22px 18px 14px; border-bottom:1px solid var(--border);}
+  header h1{font-size:17px; font-weight:600; margin:0 0 3px;}
+  header p{margin:0; font-size:12.5px; color:var(--text-dim); line-height:1.5;}
+  section{padding:18px 18px 0;}
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px;}
+  .card + .card{margin-top:12px;}
+  .card h2{font-size:12px; font-weight:600; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--text-dim); margin:0 0 12px;}
+  .slider-block{margin-bottom:16px;}
+  .slider-block:last-child{margin-bottom:0;}
+  .slider-head{display:flex; justify-content:space-between; font-size:13px; margin-bottom:2px;}
+  .slider-head .name{color:var(--text-dim);}
+  .num-input{
+    width:92px; text-align:right; background:var(--panel2); color:var(--text);
+    border:1px solid var(--border); border-radius:7px; padding:5px 8px;
+    font-weight:600; font-size:13px;
+  }
+  .num-input:focus{border-color:var(--focus);}
+  input[type=range]{-webkit-appearance:none; width:100%; height:32px; background:transparent; margin-top:6px;}
+  input[type=range]::-webkit-slider-runnable-track{height:4px; background:var(--border); border-radius:2px;}
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:20px; height:20px; border-radius:50%;
+    background:var(--focus); margin-top:-8px; border:3px solid var(--bg); box-shadow:0 0 0 1px var(--border);
+  }
+  input[type=range]::-moz-range-track{height:4px; background:var(--border); border-radius:2px;}
+  input[type=range]::-moz-range-thumb{width:20px; height:20px; border-radius:50%; background:var(--focus); border:3px solid var(--bg);}
+  .note{font-size:11.5px; color:var(--text-faint); line-height:1.55; margin-top:10px;}
+  .warn{font-size:11.5px; color:#E2A03F; line-height:1.55; background:rgba(226,160,63,.08);
+    border:1px solid rgba(226,160,63,.25); border-radius:9px; padding:9px 11px; margin-top:10px;}
+  .kpi-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .kpi{background:var(--panel2); border:1px solid var(--border); border-radius:11px; padding:12px;}
+  .kpi .label{font-size:11px; color:var(--text-dim); margin-bottom:5px;}
+  .kpi .value{font-size:18px; font-weight:600;}
+  .kpi .unit{font-size:11px; color:var(--text-faint); margin-left:3px;}
+  .kpi.wide{grid-column:1 / -1;}
+  table{width:100%; border-collapse:collapse; font-size:12px;}
+  th,td{padding:7px 6px; text-align:right; border-bottom:1px solid var(--border);}
+  th:first-child,td:first-child{text-align:left; color:var(--text-dim);}
+  th{color:var(--text-faint); font-weight:500; font-size:10.5px;}
+  .scrollx{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  canvas{width:100%; display:block; border-radius:10px;}
+  .legend{display:flex; gap:14px; margin-top:10px; flex-wrap:wrap;}
+  .legend-item{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--text-dim);}
+  .legend-line{width:14px;height:2px; border-radius:1px;}
+  .fluid-picker{position:relative; margin-bottom:16px;}
+  .fluid-picker-inner{
+    display:flex; align-items:center; gap:10px; width:100%;
+    background:var(--panel2); border:1.5px solid var(--border); border-radius:12px;
+    padding:14px; font-family:inherit; font-size:15px; font-weight:600; color:var(--text);
+    cursor:pointer; text-align:left;
+  }
+  .fluid-dot{width:12px; height:12px; border-radius:50%; flex:none;}
+  .fluid-picker-inner .fluid-name{flex:1;}
+  .fluid-caret{color:var(--text-faint); font-size:12px; flex:none; transition:transform .15s;}
+  .fluid-caret.open{transform:rotate(180deg);}
+  .fluid-menu{
+    position:absolute; left:0; right:0; top:100%; margin-top:6px; z-index:20;
+    background:var(--panel2); border:1px solid var(--border); border-radius:12px;
+    overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.4); display:none;
+  }
+  .fluid-menu.open{display:block;}
+  .fluid-option{display:flex; align-items:center; gap:10px; padding:13px 14px; font-size:14.5px;
+    color:var(--text); cursor:pointer; border-bottom:1px solid var(--border);}
+  .fluid-option:last-child{border-bottom:none;}
+  .fluid-option:active{background:rgba(255,255,255,.06);}
+  footer{padding:20px 18px 0; font-size:11px; color:var(--text-faint); line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>스크롤 가스력 해석 · 대수나선 랩</h1>
+    <p>Kohsokabe et al. (1994) 대수나선 스크롤 형상식 기반. 냉동사이클 페이지와 같은 냉매 계산 엔진을 공유합니다.</p>
+  </header>
+
+  <section>
+    <div class="card" id="engine-card">
+      <h2>계산 엔진</h2>
+      <div class="slider-head"><span id="engine-label" class="name">확인 중…</span></div>
+      <div class="note" id="engine-note"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="fluid-picker">
+      <button type="button" class="fluid-picker-inner" id="fluid-btn">
+        <span class="fluid-dot" id="fluid-dot"></span>
+        <span class="fluid-name" id="fluid-name">R410A</span>
+        <span class="fluid-caret" id="fluid-caret">▾</span>
+      </button>
+      <div class="fluid-menu" id="fluid-menu">
+        <div class="fluid-option" data-fluid="R410A"><span class="fluid-dot" style="background:var(--r410a)"></span>R410A</div>
+        <div class="fluid-option" data-fluid="R32"><span class="fluid-dot" style="background:var(--r32)"></span>R32</div>
+        <div class="fluid-option" data-fluid="R1234yf"><span class="fluid-dot" style="background:var(--r1234yf)"></span>R1234yf</div>
+        <div class="fluid-option" data-fluid="R290"><span class="fluid-dot" style="background:var(--r290)"></span>R290 (프로판)</div>
+        <div class="fluid-option" data-fluid="R744"><span class="fluid-dot" style="background:var(--r744)"></span>R744 (CO2)</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>운전 압력 (절대압)</h2>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">증발압력 Pe</span>
+          <span><input type="number" class="num-input mono" id="n-Pe" value="10.15" step="0.01" min="1" max="50"> bar</span>
+        </div>
+        <input type="range" id="s-Pe" min="1" max="50" step="0.01" value="10.15">
+      </div>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">응축압력 Pc</span>
+          <span><input type="number" class="num-input mono" id="n-Pc" value="34.46" step="0.01" min="5" max="48"> bar</span>
+        </div>
+        <input type="range" id="s-Pc" min="5" max="48" step="0.01" value="34.46">
+        <div class="note" id="pc-ceiling-note"></div>
+      </div>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">배압실 압력 P_back (Pe~Pc 사이 비율)</span>
+          <span><input type="number" class="num-input mono" id="n-PbackFrac" value="0.50" step="0.01" min="0" max="1"></span>
+        </div>
+        <input type="range" id="s-PbackFrac" min="0" max="1" step="0.01" value="0.50">
+        <div class="note">0=Pe, 1=Pc. 축력 F_axial = (챔버압력 − P_back)×투영면적.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>대수나선 랩 형상 (Kohsokabe eq.1~8)</h2>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">대수나선 계수 a</span>
+          <span><input type="number" class="num-input mono" id="n-a" value="3.0" step="0.1" min="0.5" max="10"> mm</span>
+        </div>
+        <input type="range" id="s-a" min="0.5" max="10" step="0.1" value="3.0">
+      </div>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">대수나선 지수 k</span>
+          <span><input type="number" class="num-input mono" id="n-k" value="0.75" step="0.01" min="0.5" max="1.3"></span>
+        </div>
+        <input type="range" id="s-k" min="0.5" max="1.3" step="0.01" value="0.75">
+        <div class="note">k&lt;1: 권취 시작부 두꺼움(강도 유리). k=1: 아르키메데스 나선(인볼류트 유사). k&gt;1: 권취 끝부 두꺼움.</div>
+      </div>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">공전반경 ξ1 (고정랩 두께 파라미터)</span>
+          <span><input type="number" class="num-input mono" id="n-xi1" value="2.0" step="0.1" min="0.5" max="10"> mm</span>
+        </div>
+        <input type="range" id="s-xi1" min="0.5" max="10" step="0.1" value="2.0">
+      </div>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">공전반경 ξ2 (선회랩 두께 파라미터)</span>
+          <span><input type="number" class="num-input mono" id="n-xi2" value="2.0" step="0.1" min="0.5" max="10"> mm</span>
+        </div>
+        <input type="range" id="s-xi2" min="0.5" max="10" step="0.1" value="2.0">
+        <div class="note">ξ1=ξ2 이면 선회·고정 랩이 동일 형상 (eq.4: 실제 선회반경 ε=ξ1+ξ2).</div>
+      </div>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">권취 끝 편각 φe</span>
+          <span><input type="number" class="num-input mono" id="n-phie" value="1080" step="10" min="360" max="1800"> °</span>
+        </div>
+        <input type="range" id="s-phie" min="360" max="1800" step="10" value="1080">
+      </div>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">권취 시작 편각 φ0 (근사)</span>
+          <span><input type="number" class="num-input mono" id="n-phi0" value="30" step="1" min="5" max="90"> °</span>
+        </div>
+        <input type="range" id="s-phi0" min="5" max="90" step="1" value="30">
+        <div class="warn">φ0는 원래 논문에서 곡률반경 매칭(eq.9,10)으로 정밀하게 정하지만, 여기서는 근사값을 직접 입력합니다 — 토출 직전 간극체적이 정확히 0이 아닐 수 있습니다.</div>
+      </div>
+      <div class="slider-block">
+        <div class="slider-head"><span class="name">랩 높이 h</span>
+          <span><input type="number" class="num-input mono" id="n-h" value="20" step="0.5" min="5" max="60"> mm</span>
+        </div>
+        <input type="range" id="s-h" min="5" max="60" step="0.5" value="20">
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 id="kpi-title">계산 결과 — R410A</h2>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="label">폴리트로픽 지수 n</div><div class="value mono" id="k-n">–</div></div>
+        <div class="kpi"><div class="label">최대 챔버체적</div><div class="value mono" id="k-vmax">–</div></div>
+        <div class="kpi"><div class="label">최대 축력 F_axial</div><div class="value mono" id="k-faxmax">–</div></div>
+        <div class="kpi"><div class="label">최소 축력 F_axial</div><div class="value mono" id="k-faxmin">–</div></div>
+        <div class="kpi"><div class="label">최대 접선력 F_t</div><div class="value mono" id="k-ftmax">–</div></div>
+        <div class="kpi"><div class="label">최대 토크</div><div class="value mono" id="k-tmax">–</div></div>
+        <div class="kpi wide"><div class="label">반경력 F_r (한쪽 벽면 기여분, 참고치)</div><div class="value mono" id="k-frmax">–</div></div>
+      </div>
+      <div class="warn">축방향 힘·접선력(토크)은 검증된 기하 위에서 표준식으로 계산됩니다. 반경력은 <b>선회랩 내측벽 한쪽면의 압력 기여분만</b> 적분한 값입니다 — 반대편 인접 챔버가 미는 힘까지 상쇄·합산한 최종 순힘(net force)이 아니므로, 경향 파악용 참고치로만 사용하십시오.</div>
+    </div>
+
+    <div class="card">
+      <h2>크랭크각에 따른 가스력</h2>
+      <div class="preset-row" style="display:flex; gap:8px; margin-bottom:14px;">
+        <div class="chart-sel" data-metric="Fax" style="flex:1; padding:9px; text-align:center; border-radius:9px; border:1px solid var(--border); background:var(--panel2); font-size:12.5px; color:var(--text); cursor:pointer;">축력 F_axial</div>
+        <div class="chart-sel" data-metric="Ft" style="flex:1; padding:9px; text-align:center; border-radius:9px; border:1px solid var(--border); background:var(--panel2); font-size:12.5px; color:var(--text-dim); cursor:pointer;">접선력 F_t</div>
+        <div class="chart-sel" data-metric="Fr_mag" style="flex:1; padding:9px; text-align:center; border-radius:9px; border:1px solid var(--border); background:var(--panel2); font-size:12.5px; color:var(--text-dim); cursor:pointer;">반경력 F_r*</div>
+      </div>
+      <canvas id="forcechart" width="640" height="360"></canvas>
+      <div class="legend" id="chart-legend"></div>
+      <div class="note">가로축: 크랭크각(rad, 챔버가 흡입에서 밀봉된 시점부터). 세로축: 선택한 힘(N). *F_r은 한쪽 벽면 기여분 참고치입니다.</div>
+    </div>
+
+    <div class="card">
+      <h2>냉매별 비교</h2>
+      <div class="scrollx">
+      <table id="compare-table">
+        <thead><tr><th></th><th>R410A</th><th>R32</th><th>R1234yf</th><th>R290</th><th>R744</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      </div>
+      <div class="note">모든 냉매에 같은 Pe/Pc(절대압)·같은 랩 형상을 적용했을 때의 비교입니다. 실제로는 냉매별로 Pe/Pc·형상을 다르게 설계하는 게 일반적입니다.</div>
+    </div>
+
+    <div class="warn">
+      이 도구는 검증 진행 중입니다. 검증 완료: 대수나선 랩 형상(논문 eq.1~8), 챔버 경계 접점각 관계식(eq.12), 챔버 면적식(eq.13,18 — 독립적 shoelace 방식과 0.7% 이내로 일치). 미검증: 정확한 권취시작각 φ0, 접선·반경방향 힘, 크랭크각-φ 대응관계의 세부 보정.
+    </div>
+  </section>
+
+  <footer>
+    참고문헌: 香曽我部弘勝 외, "代数螺線を基本にしたスクロール流体機械のスクロール形状に関する研究", 日本冷凍協会論文集 Vol.11 No.3 (1994) pp.337-347.
+  </footer>
+</div>
+
+<script>
+/* ===================== Peng-Robinson refrigerant engine (shared with cycle tool) ===================== */
+const Rgas = 8.314462618;
+const FLUIDS = {
+  R410A: {Tc:344.5, Pc:4901e3, omega:0.3913, M:0.07258,
+          cpA:-0.352, cpB:0.02620, cpC:0.0, cpD:0.0, color:'--r410a', label:'R410A'},
+  R290:  {Tc:369.89, Pc:4251e3, omega:0.1521, M:0.04410,
+          cpA:1.213, cpB:28.785e-3, cpC:-8.824e-6, cpD:0.0, color:'--r290', label:'R290'},
+  R744:  {Tc:304.13, Pc:7377e3, omega:0.22394, M:0.04401,
+          cpA:5.457, cpB:1.045e-3, cpC:0.0, cpD:-1.157e5, color:'--r744', label:'R744'},
+  R1234yf: {Tc:367.85, Pc:3382.2e3, omega:0.276, M:0.11404,
+          cpA:0.700, cpB:0.03916, cpC:0.0, cpD:0.0, color:'--r1234yf', label:'R1234yf'},
+  R32: {Tc:351.26, Pc:5784e3, omega:0.2768, M:0.052024,
+          cpA:-0.505, cpB:0.01789, cpC:0.0, cpD:0.0, color:'--r32', label:'R32'}
+};
+const T0 = 273.15, P0 = 1e5;
+
+function prParams(fl,T){
+  const d = FLUIDS[fl];
+  const ac = 0.45724*Rgas*Rgas*d.Tc*d.Tc/d.Pc;
+  const b = 0.07780*Rgas*d.Tc/d.Pc;
+  const kappa = 0.37464 + 1.54226*d.omega - 0.26992*d.omega*d.omega;
+  const Tr = T/d.Tc, sq = Math.sqrt(Tr);
+  const alpha = Math.pow(1+kappa*(1-sq),2);
+  const a = ac*alpha;
+  const dadT = -ac*kappa*Math.sqrt(alpha/Tr)/d.Tc;
+  return {a,b,dadT};
+}
+function cubicRoots(c2,c1,c0){
+  const a=c2,b=c1,c=c0;
+  const p = b - a*a/3;
+  const q = 2*a*a*a/27 - a*b/3 + c;
+  const disc = (q/2)*(q/2) + (p/3)*(p/3)*(p/3);
+  let roots=[];
+  if (disc > 0){
+    const sqd = Math.sqrt(disc);
+    const u = Math.cbrt(-q/2+sqd), v = Math.cbrt(-q/2-sqd);
+    roots = [u+v-a/3];
+  } else {
+    const r = Math.sqrt(-(p/3)*(p/3)*(p/3));
+    const phi = Math.acos(Math.max(-1,Math.min(1,(-q/2)/r)));
+    const m = 2*Math.sqrt(-p/3);
+    for(let i=0;i<3;i++) roots.push(m*Math.cos((phi+2*Math.PI*i)/3) - a/3);
+  }
+  return roots;
+}
+function Zroots(fl,T,P){
+  const {a,b,dadT} = prParams(fl,T);
+  const A = a*P/(Rgas*T*Rgas*T);
+  const B = b*P/(Rgas*T);
+  const c2 = -(1-B), c1 = A-3*B*B-2*B, c0 = -(A*B-B*B-B*B*B);
+  const roots = cubicRoots(c2,c1,c0).filter(z=>z>B).sort((x,y)=>x-y);
+  return {roots,A,B,a,b,dadT};
+}
+function psat(fl,T){
+  const d = FLUIDS[fl];
+  const Tr = T/d.Tc;
+  let P = d.Pc*Math.exp(5.373*(1+d.omega)*(1-1/Tr));
+  for(let i=0;i<100;i++){
+    const {roots,A,B} = Zroots(fl,T,P);
+    if (roots.length<2){ P*=0.98; continue; }
+    const Zl=roots[0], Zv=roots[roots.length-1];
+    const lnPhi=(Z,A,B)=>{
+      const term = Math.log((Z+(1+Math.SQRT2)*B)/(Z+(1-Math.SQRT2)*B));
+      return Z-1 - Math.log(Z-B) - A/(2*Math.SQRT2*B)*term;
+    };
+    const ratio = Math.exp(lnPhi(Zl,A,B)-lnPhi(Zv,A,B));
+    const Pnew = P*ratio;
+    if (Math.abs(Pnew-P)/P < 1e-8) return Pnew;
+    P = Pnew;
+  }
+  return P;
+}
+function TsatFromP(fl,P,Q){
+  if (ENGINE==='coolprop' && cpModule){
+    return cpModule.PropsSI('T','P',P,'Q',Q,realFluidId(fl));
+  }
+  let lo=180, hi=FLUIDS[fl].Tc-0.15;
+  for(let i=0;i<60;i++){
+    const mid=(lo+hi)/2;
+    const p = psat(fl,mid);
+    if (p<P) lo=mid; else hi=mid;
+  }
+  return (lo+hi)/2;
+}
+
+/* ===================== Real CoolProp (optional, auto-detected) ===================== */
+let ENGINE = 'pr';
+let cpModule = null;
+function realFluidId(fl){ return fl==='R290' ? 'Propane' : (fl==='R744' ? 'CO2' : fl); }
+
+async function tryLoadCoolProp(){
+  const $lab = document.getElementById('engine-label');
+  const $note = document.getElementById('engine-note');
+  const hardTimeoutId = setTimeout(()=>fallback('timeout'), 3000);
+  function fallback(reason){
+    ENGINE='pr'; cpModule=null;
+    $lab.innerHTML = '<b style="color:#E2A03F">자체 근사엔진 (PR-EOS)</b> 사용 중';
+    $note.textContent = 'coolprop.js를 찾지 못했습니다 ('+reason+'). 정적 호스팅에 coolprop.js/.wasm을 같이 두면 정식 엔진으로 전환됩니다.';
+    render();
+  }
+  try{
+    const mod = await import('./coolprop.js');
+    const inst = await mod.default();
+    const rho = inst.PropsSI('D','T',300,'P',101325,'Water');
+    if (Math.abs(rho-996.6) > 5) throw new Error('sanity check failed');
+    clearTimeout(hardTimeoutId);
+    cpModule = inst; ENGINE='coolprop';
+    $lab.innerHTML = '<b style="color:#3FBE81">CoolProp 정식 엔진</b> 연동됨';
+    $note.textContent = 'NIST REFPROP과 동일한 참조 상태방정식으로 계산 중입니다.';
+    render();
+  }catch(e){
+    clearTimeout(hardTimeoutId);
+    fallback(String(e && e.message || e));
+  }
+}
+
+/* ===================== Kohsokabe algebraic-spiral scroll geometry ===================== */
+function Tang(phi,k){ return Math.atan(k/phi); }
+
+function newtonPhi2(phi1, k, phi_e){
+  // solve g(phi2)=phi1+2pi-atan(k/phi1)+atan(k/phi2)-phi2=0
+  const target = phi1 + 2*Math.PI - Tang(phi1,k);
+  let lo = phi1+1e-4, hi = phi1+2*Math.PI+2.0;
+  function g(p2){ return target + Tang(p2,k) - p2; }
+  let glo=g(lo), ghi=g(hi);
+  for(let i=0;i<80;i++){
+    const mid=(lo+hi)/2, gm=g(mid);
+    if ((gm>0)===(glo>0)){ lo=mid; glo=gm; } else { hi=mid; ghi=gm; }
+  }
+  return (lo+hi)/2;
+}
+
+function wrapXY(phi, side, a, k, xi){
+  const b = phi - Tang(phi,k);
+  const r = a*Math.pow(phi,k);
+  const cb = xi*Math.cos(b), sb = xi*Math.sin(b);
+  if (side==='mo') return [ r*Math.cos(phi)-cb,  r*Math.sin(phi)-sb];   // orbiting outer
+  if (side==='mi') return [-r*Math.cos(phi)-cb, -r*Math.sin(phi)-sb];   // orbiting inner
+  if (side==='fo') return [-r*Math.cos(phi)+cb, -r*Math.sin(phi)+sb];   // fixed outer
+  if (side==='fi') return [ r*Math.cos(phi)+cb,  r*Math.sin(phi)+sb];   // fixed inner
+}
+
+function shoelace(pts){
+  let s=0;
+  for(let i=0;i<pts.length;i++){
+    const [x1,y1]=pts[i], [x2,y2]=pts[(i+1)%pts.length];
+    s += x1*y2 - x2*y1;
+  }
+  return Math.abs(s)/2;
+}
+
+function chamberArea(phi1, phi2, sideA, sideB, a, k, xi, n=120){
+  const pts = [];
+  for(let i=0;i<=n;i++){ const p = phi1+(phi2-phi1)*i/n; pts.push(wrapXY(p, sideA, a, k, xi.A)); }
+  for(let i=0;i<=n;i++){ const p = phi2+(phi1-phi2)*i/n; pts.push(wrapXY(p, sideB, a, k, xi.B)); }
+  return shoelace(pts);
+}
+
+// Force on the ORBITING wall segment of one chamber boundary, per unit pressure.
+// Returns {Fx, Fy} = integral of n_hat * ds along that wall segment (outward normal,
+// i.e. pointing OUT of the chamber into the wrap material) -- multiply by (P - Pback)
+// and wrap height h to get an actual force contribution in N.
+function wallNormalIntegral(phi1, phi2, side, a, k, xi, n=150){
+  let Fx=0, Fy=0;
+  let prev = wrapXY(phi1, side, a, k, xi);
+  for(let i=1;i<=n;i++){
+    const p = phi1 + (phi2-phi1)*i/n;
+    const cur = wrapXY(p, side, a, k, xi);
+    const dx = cur[0]-prev[0], dy = cur[1]-prev[1];
+    // outward normal of the chamber boundary for a segment traversed phi1->phi2
+    // (rotate tangent by -90deg; sign convention checked against axial-force sign in render())
+    const nx = dy, ny = -dx;
+    const mx = (cur[0]+prev[0])/2, my = (cur[1]+prev[1])/2; // unused, kept for potential moment calc
+    Fx += nx; Fy += ny;
+    prev = cur;
+  }
+  return {Fx, Fy};
+}
+
+function chamberSequence(params){
+  const {a,k,xi1,xi2,phi_e,phi0,steps} = params;
+  const phi1_start = phi_e - 2*Math.PI;
+  const out = [];
+  for(let i=0;i<=steps;i++){
+    const p1 = phi1_start - (phi1_start-phi0)*i/steps;
+    let p2;
+    try{ p2 = newtonPhi2(p1, k, phi_e); }catch(e){ continue; }
+    if (p2 > phi_e) p2 = phi_e;
+    const Smi = chamberArea(p1,p2,'mi','fo', a,k,{A:xi2,B:xi1});
+    const Sfi = chamberArea(p1,p2,'fi','mo', a,k,{A:xi1,B:xi2});
+    const theta = phi1_start - p1;
+    // orbiting-wall boundary normal integrals (per unit pressure), for the two
+    // orbiting-side walls that bound this chamber pair (mi wall bounds Smi, mo wall bounds Sfi)
+    const nInt_mi = wallNormalIntegral(p1, p2, 'mi', a, k, xi2);
+    const nInt_mo = wallNormalIntegral(p1, p2, 'mo', a, k, xi2);
+    out.push({theta, p1, p2, area: Smi+Sfi, nInt_mi, nInt_mo});
+  }
+  return out;
+}
+
+/* ===================== UI state ===================== */
+let state = {
+  fluid:'R410A', Pe:10.15, Pc:34.46, PbackFrac:0.50,
+  a:3.0, k:0.75, xi1:2.0, xi2:2.0, phi_e:1080, phi0:30, h:20
+};
+const $ = id=>document.getElementById(id);
+
+function computePeC(fl){
+  const critBar = FLUIDS[fl].Pc/1e5;
+  const safePc = Math.min(state.Pc, critBar*0.98);
+  return {PePa: state.Pe*1e5, PcPa: safePc*1e5};
+}
+
+function runForFluid(fl){
+  const {PePa, PcPa} = computePeC(fl);
+  const a=state.a, k=state.k, xi1=state.xi1, xi2=state.xi2;
+  const phi_e = state.phi_e*Math.PI/180, phi0 = state.phi0*Math.PI/180;
+  const eps = xi1+xi2; // orbiting radius [mm], eq(4)
+  const seq = chamberSequence({a,k,xi1,xi2,phi_e,phi0,steps:80});
+  const Amax = seq[0].area, Amin = seq[seq.length-1].area;
+  const n = Math.log(PcPa/PePa) / Math.log(Amax/Amin);
+  const Pback = PePa + state.PbackFrac*(PcPa-PePa);
+  const h_m = state.h/1000;
+  const eps_m = eps/1000;
+
+  const rows = seq.map(pt=>{
+    const P = PePa * Math.pow(Amax/pt.area, n);
+    const Fax = (P - Pback) * (pt.area*1e-6);  // mm2 -> m2, N
+    return {theta: pt.theta, area: pt.area, P, Fax, nInt_mi: pt.nInt_mi, nInt_mo: pt.nInt_mo};
+  });
+
+  // Tangential force via standard PV work-torque relation: T = P * dV/dtheta, Ft = T/eps
+  for(let i=0;i<rows.length;i++){
+    const iL = Math.max(0,i-1), iR = Math.min(rows.length-1,i+1);
+    const dV = (rows[iR].area - rows[iL].area)*1e-9 * state.h; // mm2*mm -> m3 (via 1e-9 mm3->m3, area in mm2 * h in mm = mm3)
+    // area[mm2]*h[mm] = mm3; convert mm3 -> m3 is *1e-9
+    const dTheta = (rows[iR].theta - rows[iL].theta) || 1e-9;
+    const dVdTheta = dV/dTheta; // m3/rad
+    const T = -rows[i].P * dVdTheta; // negative dV/dtheta during compression -> positive driving torque
+    rows[i].torque = T;             // N*m
+    rows[i].Ft = T/eps_m;           // N
+  }
+
+  // Radial force: one-sided orbiting-wall pressure line-integral contribution (NOT yet
+  // netted against the adjacent chamber on the other side of the same wall -- see caveat in UI).
+  rows.forEach(r=>{
+    const dP = r.P - Pback;
+    const Fx = dP * r.nInt_mi.Fx * 1e-3 * state.h*1e-3; // Pa * mm * 1e-3(m/mm) * mm * 1e-3(m/mm) = N
+    const Fy = dP * r.nInt_mi.Fy * 1e-3 * state.h*1e-3;
+    r.Fr_x = Fx; r.Fr_y = Fy;
+    r.Fr_mag = Math.hypot(Fx,Fy);
+  });
+
+  return {rows, n, Amax, Amin, PePa, PcPa, eps};
+}
+
+function render(){
+  const fluidColor = getComputedStyle(document.documentElement).getPropertyValue(FLUIDS[state.fluid].color).trim();
+  $('fluid-dot').style.background = fluidColor;
+  $('fluid-name').textContent = FLUIDS[state.fluid].label;
+  $('fluid-btn').style.borderColor = fluidColor;
+
+  const critBar = FLUIDS[state.fluid].Pc/1e5;
+  const ceilBar = Math.floor(critBar*0.98*100)/100;
+  $('s-Pc').max = ceilBar; $('n-Pc').max = ceilBar;
+  $('pc-ceiling-note').textContent = state.fluid+' 임계압력 '+critBar.toFixed(1)+'bar(abs) 아래로 제한 (최대 '+ceilBar.toFixed(2)+'bar).';
+
+  const res = runForFluid(state.fluid);
+  $('kpi-title').textContent = '계산 결과 — '+state.fluid;
+  $('k-n').textContent = res.n.toFixed(3);
+  $('k-vmax').innerHTML = (res.Amax*state.h/1000).toFixed(2)+'<span class="unit">cm³</span>';
+  const faxVals = res.rows.map(r=>r.Fax);
+  $('k-faxmax').innerHTML = Math.max(...faxVals).toFixed(1)+'<span class="unit">N</span>';
+  $('k-faxmin').innerHTML = Math.min(...faxVals).toFixed(1)+'<span class="unit">N</span>';
+  const ftVals = res.rows.map(r=>r.Ft), tVals = res.rows.map(r=>r.torque), frVals = res.rows.map(r=>r.Fr_mag);
+  $('k-ftmax').innerHTML = Math.max(...ftVals.map(Math.abs)).toFixed(1)+'<span class="unit">N</span>';
+  $('k-tmax').innerHTML = Math.max(...tVals).toFixed(2)+'<span class="unit">N·m</span>';
+  $('k-frmax').innerHTML = Math.max(...frVals).toFixed(1)+'<span class="unit">N</span>';
+
+  drawChart(res.rows);
+
+  // compare table across all 5 fluids
+  const allRes = {};
+  ['R410A','R32','R1234yf','R290','R744'].forEach(fl=>{ allRes[fl]=runForFluid(fl); });
+  const rows = [
+    ['폴리트로픽 지수 n', fl=>allRes[fl].n.toFixed(3)],
+    ['최대 축력 [N]', fl=>Math.max(...allRes[fl].rows.map(r=>r.Fax)).toFixed(1)],
+    ['최소 축력 [N]', fl=>Math.min(...allRes[fl].rows.map(r=>r.Fax)).toFixed(1)],
+    ['최대 토크 [N·m]', fl=>Math.max(...allRes[fl].rows.map(r=>r.torque)).toFixed(2)],
+    ['최대 접선력 [N]', fl=>Math.max(...allRes[fl].rows.map(r=>Math.abs(r.Ft))).toFixed(1)],
+    ['최대 반경력* [N]', fl=>Math.max(...allRes[fl].rows.map(r=>r.Fr_mag)).toFixed(1)],
+    ['최대 챔버체적 [cm³]', fl=>(allRes[fl].Amax*state.h/1000).toFixed(2)],
+  ];
+  const tbody = document.querySelector('#compare-table tbody');
+  tbody.innerHTML = rows.map(r=>
+    `<tr><td>${r[0]}</td><td class="mono">${r[1]('R410A')}</td><td class="mono">${r[1]('R32')}</td><td class="mono">${r[1]('R1234yf')}</td><td class="mono">${r[1]('R290')}</td><td class="mono">${r[1]('R744')}</td></tr>`
+  ).join('');
+
+  const legend = document.getElementById('chart-legend');
+  legend.innerHTML = `<div class="legend-item"><span class="legend-line" style="background:${fluidColor}"></span>${state.fluid} — ${METRIC_LABEL[chartMetric]}</div>`;
+}
+
+let chartMetric = 'Fax';
+const METRIC_LABEL = {Fax:'F_axial [N]', Ft:'F_t [N]', Fr_mag:'F_r [N] (참고치)'};
+
+function drawChart(rows){
+  const cv = $('forcechart');
+  const dpr = window.devicePixelRatio||1;
+  const W = cv.clientWidth||640, H = 300;
+  cv.width = W*dpr; cv.height = H*dpr; cv.style.height=H+'px';
+  const ctx = cv.getContext('2d'); ctx.scale(dpr,dpr);
+  ctx.clearRect(0,0,W,H);
+  const padL=54,padR=14,padT=14,padB=32;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const thetas = rows.map(r=>r.theta), vals = rows.map(r=>r[chartMetric]);
+  const tMin=Math.min(...thetas), tMax=Math.max(...thetas);
+  const fMin=Math.min(...vals), fMax=Math.max(...vals);
+  const fPad=(fMax-fMin)*0.1||1;
+  const X = t=>padL+(t-tMin)/(tMax-tMin)*plotW;
+  const Y = f=>padT+(1-(f-(fMin-fPad))/((fMax+fPad)-(fMin-fPad)))*plotH;
+
+  ctx.strokeStyle='#2A313A'; ctx.lineWidth=1; ctx.font='10px IBM Plex Mono, monospace'; ctx.fillStyle='#5B6570';
+  for(let i=0;i<=4;i++){
+    const f = (fMin-fPad)+((fMax+fPad)-(fMin-fPad))*i/4;
+    const y=Y(f);
+    ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(W-padR,y); ctx.stroke();
+    ctx.fillText(f.toFixed(0), 4, y+3);
+  }
+  for(let i=0;i<=4;i++){
+    const t=tMin+(tMax-tMin)*i/4, x=X(t);
+    ctx.beginPath(); ctx.moveTo(x,padT); ctx.lineTo(x,H-padB); ctx.stroke();
+    ctx.fillText(t.toFixed(1), x-10, H-padB+14);
+  }
+  const fluidColor = getComputedStyle(document.documentElement).getPropertyValue(FLUIDS[state.fluid].color).trim();
+  ctx.strokeStyle=fluidColor; ctx.lineWidth=2.2;
+  ctx.beginPath();
+  rows.forEach((r,i)=>{ const x=X(r.theta), y=Y(r[chartMetric]); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+  ctx.stroke();
+}
+
+/* ===================== events ===================== */
+const fluidBtn=$('fluid-btn'), fluidMenu=$('fluid-menu'), fluidCaret=$('fluid-caret');
+function closeFluidMenu(){ fluidMenu.classList.remove('open'); fluidCaret.classList.remove('open'); }
+function toggleFluidMenu(){ fluidMenu.classList.toggle('open'); fluidCaret.classList.toggle('open'); }
+fluidBtn.addEventListener('click', e=>{ e.stopPropagation(); toggleFluidMenu(); });
+fluidMenu.addEventListener('click', e=>e.stopPropagation());
+document.querySelectorAll('.fluid-option').forEach(opt=>{
+  opt.addEventListener('click', ()=>{
+    state.fluid = opt.dataset.fluid;
+    const critBar = FLUIDS[state.fluid].Pc/1e5;
+    const ceilBar = Math.floor(critBar*0.98*100)/100;
+    if (state.Pc > ceilBar || state.Pc < 5) state.Pc = Math.min(34.46, ceilBar);
+    closeFluidMenu(); render();
+  });
+});
+document.addEventListener('click', ()=>closeFluidMenu());
+
+function bindDual(key, decimals){
+  const rng=$('s-'+key), num=$('n-'+key);
+  rng.addEventListener('input', e=>{ state[key]=parseFloat(e.target.value); num.value=state[key].toFixed(decimals); render(); });
+  num.addEventListener('input', e=>{
+    const v=parseFloat(e.target.value);
+    if(!isNaN(v)){ state[key]=v; rng.value=Math.min(Math.max(v,parseFloat(rng.min)),parseFloat(rng.max)); render(); }
+  });
+  num.addEventListener('blur', ()=>{ num.value=state[key].toFixed(decimals); });
+}
+bindDual('Pe',2); bindDual('Pc',2); bindDual('PbackFrac',2);
+bindDual('a',2); bindDual('k',3); bindDual('xi1',2); bindDual('xi2',2);
+bindDual('phi0',0); bindDual('h',1);
+// phi_e uses a differently-named state key (phi_e vs element id "phie") -> bind explicitly
+$('s-phie').addEventListener('input', e=>{ state.phi_e=parseFloat(e.target.value); $('n-phie').value=state.phi_e.toFixed(0); render(); });
+$('n-phie').addEventListener('input', e=>{ const v=parseFloat(e.target.value); if(!isNaN(v)){ state.phi_e=v; $('s-phie').value=v; render(); }});
+
+document.querySelectorAll('.chart-sel').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    chartMetric = btn.dataset.metric;
+    document.querySelectorAll('.chart-sel').forEach(b=>{
+      b.style.borderColor = 'var(--border)'; b.style.color='var(--text-dim)';
+    });
+    btn.style.borderColor='var(--focus)'; btn.style.color='var(--text)';
+    render();
+  });
+});
+
+window.addEventListener('resize', ()=>render());
+tryLoadCoolProp();
+render();
+</script>
+</body>
+</html>
