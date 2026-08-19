@@ -207,9 +207,9 @@
       </div>
       <div class="slider-block">
         <div class="slider-head"><span class="name">증발압력 Pe (절대압)</span>
-          <span><input type="number" class="num-input mono" id="n-Pe" value="10.15" step="0.01" min="1" max="50"> bar</span>
+          <span><input type="number" class="num-input mono" id="n-Pe" value="10.35" step="0.01" min="1.02" max="50.99"> kgf/cm²</span>
         </div>
-        <input type="range" id="s-Pe" min="1" max="50" step="0.01" value="10.15">
+        <input type="range" id="s-Pe" min="1.02" max="50.99" step="0.01" value="10.35">
       </div>
       <div class="slider-block">
         <div class="slider-head"><span class="name">흡입 과열도 ΔTsh</span>
@@ -221,9 +221,9 @@
       <div id="subcritical-inputs">
         <div class="slider-block">
           <div class="slider-head"><span class="name">응축압력 Pc (절대압)</span>
-            <span><input type="number" class="num-input mono" id="n-Pc" value="33.30" step="0.01" min="5" max="48"> bar</span>
+            <span><input type="number" class="num-input mono" id="n-Pc" value="33.96" step="0.01" min="5.10" max="48.95"> kgf/cm²</span>
           </div>
-          <input type="range" id="s-Pc" min="5" max="48" step="0.01" value="33.30">
+          <input type="range" id="s-Pc" min="5.10" max="48.95" step="0.01" value="33.96">
           <div class="note" id="pc-ceiling-note" style="margin-top:6px"></div>
         </div>
         <div class="slider-block">
@@ -237,9 +237,9 @@
       <div id="transcritical-inputs" style="display:none">
         <div class="slider-block">
           <div class="slider-head"><span class="name">가스쿨러 출구압력 P_gc (절대압)</span>
-            <span><input type="number" class="num-input mono" id="n-Pgc" value="100.00" step="0.01" min="60" max="150"> bar</span>
+            <span><input type="number" class="num-input mono" id="n-Pgc" value="101.97" step="0.01" min="61.18" max="153.0"> kgf/cm²</span>
           </div>
-          <input type="range" id="s-Pgc" min="60" max="150" step="0.01" value="100.00">
+          <input type="range" id="s-Pgc" min="61.18" max="153.0" step="0.01" value="101.97">
         </div>
         <div class="slider-block">
           <div class="slider-head"><span class="name">가스쿨러 출구온도 T3</span>
@@ -248,7 +248,7 @@
           <input type="range" id="s-T3" min="32" max="65" step="0.1" value="54.4">
         </div>
         <div class="warn" id="transcritical-note">
-          R744는 응축압력 Pc가 임계압력(73.8bar abs)보다 높아지면 응축이 없습니다. 가스쿨러 출구압력을 직접 조정해 최적점을 찾아보세요 — COP가 최대가 되는 압력이 존재합니다.
+          R744는 응축압력 Pc가 임계압력(75.2kgf/cm² abs)보다 높아지면 응축이 없습니다. 가스쿨러 출구압력을 직접 조정해 최적점을 찾아보세요 — COP가 최대가 되는 압력이 존재합니다.
         </div>
       </div>
 
@@ -297,7 +297,7 @@
 
       <div class="scrollx" style="margin-top:14px">
       <table id="state-table">
-        <thead><tr><th>상태점</th><th>T [°C]</th><th>P [bar,abs]</th><th>h [kJ/kg]</th><th>s [kJ/kg·K]</th></tr></thead>
+        <thead><tr><th>상태점</th><th>T [°C]</th><th>P [kgf/cm²,abs]</th><th>h [kJ/kg]</th><th>s [kJ/kg·K]</th></tr></thead>
         <tbody></tbody>
       </table>
       </div>
@@ -313,7 +313,7 @@
         <div class="legend-item"><span class="legend-line" style="background:var(--r290)"></span>R290</div>
         <div class="legend-item"><span class="legend-line" style="background:var(--r744)"></span>R744</div>
       </div>
-      <div class="note">점선 = 포화선(아임계 구간만). 세로축 로그(bar). 원형마커 = 압축기 사이클 상태점 1→2→3→4.</div>
+      <div class="note">점선 = 포화선(아임계 구간만). 세로축 로그(kgf/cm²). 원형마커 = 압축기 사이클 상태점 1→2→3→4.</div>
     </div>
 
     <div class="card">
@@ -364,6 +364,7 @@ const FLUIDS = {
           cpA:-0.505, cpB:0.01789, cpC:0.0, cpD:0.0, color:'--r32', label:'R32'}
 };
 const T0 = 273.15, P0 = 1e5;
+const KGF_TO_PA = 98066.5;  // 1 kgf/cm^2 = 98066.5 Pa (exact, by definition)
 
 function prParams(fl,T){
   const d = FLUIDS[fl];
@@ -507,7 +508,7 @@ function computeCycle(fl, TeC, TshK, mode, opts){
     T3 = Tc - opts.TscK;
     h3 = hMass(fl,T3,Pc,false);
   } else {
-    Pc = opts.PgcBar*1e5;
+    Pc = opts.PgcBar*KGF_TO_PA;
     T3 = opts.T3C+273.15;
     h3 = hMass(fl,T3,Pc,false);
   }
@@ -611,7 +612,7 @@ function computeCycleReal(fl, TeC, TshK, mode, opts){
       h3 = P('H','P',Pc,'Q',0,id)/1000; // avoid T,P ambiguity exactly on the dome
     }
   } else {
-    Pc = opts.PgcBar*1e5;
+    Pc = opts.PgcBar*KGF_TO_PA;
     T3 = opts.T3C+273.15;
     h3 = P('H','T',T3,'P',Pc,id)/1000;
   }
@@ -660,20 +661,20 @@ function TsatFromP(fl,P,Q){
 
 /* ===================== UI state & wiring ===================== */
 let state = {
-  fluid:'R410A', Pe:10.15, Tsh:11.1, Pc:33.3, Tsc:8.3, Pgc:100, T3:54.4, eta:1.0,
+  fluid:'R410A', Pe:10.35, Tsh:11.1, Pc:33.96, Tsc:8.3, Pgc:101.97, T3:54.4, eta:1.0,
   Vs:35, N:60, etaV:0.95
 };
 
 const $ = id=>document.getElementById(id);
 
 function isTranscritical(fl, PcBar){
-  return PcBar*1e5 > FLUIDS[fl].Pc;
+  return PcBar*KGF_TO_PA > FLUIDS[fl].Pc;
 }
 
 function fmt(x,d=2){ return isFinite(x) ? x.toFixed(d) : '–'; }
 
 function TeC_of(fl){
-  return TsatFromP(fl, state.Pe*1e5, 1) - 273.15;
+  return TsatFromP(fl, state.Pe*KGF_TO_PA, 1) - 273.15;
 }
 function runCycleFor(fl){
   // Only R744 is treated as transcritical in this tool. R410A/R290 always
@@ -687,9 +688,9 @@ function runCycleFor(fl){
   if (mode==='transcritical'){
     opts = {PgcBar:state.Pgc, T3C:state.T3, etaIs:state.eta};
   } else {
-    const critBar = FLUIDS[fl].Pc/1e5;
+    const critBar = FLUIDS[fl].Pc/KGF_TO_PA;
     const safePcBar = Math.min(state.Pc, critBar*0.98); // stay just under this fluid's own critical pressure
-    const TcC = TsatFromP(fl, safePcBar*1e5, 0) - 273.15;
+    const TcC = TsatFromP(fl, safePcBar*KGF_TO_PA, 0) - 273.15;
     opts = {TcC, TscK:state.Tsc, etaIs:state.eta};
   }
   if (ENGINE==='coolprop' && cpModule){
@@ -750,12 +751,12 @@ function render(){
   $('transcritical-note').style.display = state.fluid==='R744' ? 'block' : 'none';
 
   if (!trans){
-    const critBar = FLUIDS[state.fluid].Pc/1e5;
+    const critBar = FLUIDS[state.fluid].Pc/KGF_TO_PA;
     const ceilBar = Math.floor(critBar*0.98*100)/100; // just under this fluid's critical pressure
     $('s-Pc').max = ceilBar;
     $('n-Pc').max = ceilBar;
     $('pc-ceiling-note').textContent =
-      state.fluid+' 임계압력 '+critBar.toFixed(1)+'bar(abs) 아래로 제한됩니다 (최대 '+ceilBar.toFixed(2)+'bar).';
+      state.fluid+' 임계압력 '+critBar.toFixed(1)+'kgf/cm²(abs) 아래로 제한됩니다 (최대 '+ceilBar.toFixed(2)+'kgf/cm²).';
   }
 
   const {res, mode} = runCycleFor(state.fluid);
@@ -766,9 +767,9 @@ function render(){
   $('k-eer').textContent = fmt(res.EER,2);
   $('k-t2s').innerHTML = fmt(res.T2s-273.15,1)+'<span class="unit">°C</span>';
   $('k-t2').innerHTML = fmt(res.T2-273.15,1)+'<span class="unit">°C</span>';
-  const dP = (res.Pc-res.Pe)/1e5;
-  $('k-press').innerHTML = fmt(res.Pe/1e5,1)+' / '+fmt(res.Pc/1e5,1)+' / '+fmt(dP,1)+
-    '<span class="unit">bar</span>';
+  const dP = (res.Pc-res.Pe)/KGF_TO_PA;
+  $('k-press').innerHTML = fmt(res.Pe/KGF_TO_PA,1)+' / '+fmt(res.Pc/KGF_TO_PA,1)+' / '+fmt(dP,1)+
+    '<span class="unit">kgf/cm²</span>';
 
   const Vdot = (state.Vs/1e6) * state.N * state.etaV; // m3/s (N is already in Hz = rev/s)
   const mdot = Vdot * res.rho1; // kg/s
@@ -781,11 +782,11 @@ function render(){
   $('k-qv').innerHTML = fmt(qv,0)+'<span class="unit">kJ/m³</span>';
 
   const rows = [
-    ['1 흡입', res.T1-273.15, res.Pe/1e5, res.h1, res.s1],
-    ['2s 등엔트로피토출', res.T2s-273.15, res.Pc/1e5, res.h2s, res.s1],
-    ['2 실제토출', res.T2-273.15, res.Pc/1e5, res.h2, sAt(state.fluid,res.T2,res.Pc,true)],
-    ['3 '+(mode==='trans'?'가스쿨러출구':'응축기출구'), res.T3-273.15, res.Pc/1e5, res.h3, sAt(state.fluid,res.T3,res.Pc,false)],
-    ['4 팽창후 (x='+fmt(res.x4,3)+')', res.T4-273.15, res.Pe/1e5, res.h4, res.s4]
+    ['1 흡입', res.T1-273.15, res.Pe/KGF_TO_PA, res.h1, res.s1],
+    ['2s 등엔트로피토출', res.T2s-273.15, res.Pc/KGF_TO_PA, res.h2s, res.s1],
+    ['2 실제토출', res.T2-273.15, res.Pc/KGF_TO_PA, res.h2, sAt(state.fluid,res.T2,res.Pc,true)],
+    ['3 '+(mode==='trans'?'가스쿨러출구':'응축기출구'), res.T3-273.15, res.Pc/KGF_TO_PA, res.h3, sAt(state.fluid,res.T3,res.Pc,false)],
+    ['4 팽창후 (x='+fmt(res.x4,3)+')', res.T4-273.15, res.Pe/KGF_TO_PA, res.h4, res.s4]
   ];
   const tbody = document.querySelector('#state-table tbody');
   tbody.innerHTML = rows.map(r=>
@@ -802,8 +803,8 @@ function render(){
     ['이론 COP', fl=>fmt(results[fl].COP,3)],
     ['이론 EER', fl=>fmt(results[fl].EER,2)],
     ['이론 토출온도 [°C]', fl=>fmt(results[fl].T2s-273.15,1)],
-    ['증발압력 [bar,abs]', fl=>fmt(results[fl].Pe/1e5,2)],
-    ['고압측 [bar,abs]', fl=>fmt(results[fl].Pc/1e5,2)],
+    ['증발압력 [kgf/cm²,abs]', fl=>fmt(results[fl].Pe/KGF_TO_PA,2)],
+    ['고압측 [kgf/cm²,abs]', fl=>fmt(results[fl].Pc/KGF_TO_PA,2)],
     ['동일 Vs 가정시 냉방능력 [kW]', fl=>fmt(Vdot0*results[fl].rho1*results[fl].qe,2)],
   ];
   const ctbody = document.querySelector('#compare-table tbody');
@@ -833,9 +834,9 @@ function drawChart(results){
   ['R410A','R32','R1234yf','R290','R744'].forEach(fl=>{
     const r = results[fl];
     [r.h1,r.h2s,r.h2,r.h3,r.h4].forEach(h=>hs.push(h));
-    [r.Pe/1e5,r.Pc/1e5].forEach(p=>ps.push(p));
+    [r.Pe/KGF_TO_PA,r.Pc/KGF_TO_PA].forEach(p=>ps.push(p));
     const dome = satDome(fl, 100);
-    dome.forEach(d=>{ hs.push(d.hl); hs.push(d.hv); ps.push(d.P/1e5); });
+    dome.forEach(d=>{ hs.push(d.hl); hs.push(d.hv); ps.push(d.P/KGF_TO_PA); });
   });
   const hMin = Math.min(...hs)-20, hMax = Math.max(...hs)+20;
   const pMin = Math.max(0.3, Math.min(...ps)*0.6), pMax = Math.max(...ps)*1.6;
@@ -870,16 +871,16 @@ function drawChart(results){
     if (dome.length>2){
       ctx.strokeStyle = col; ctx.globalAlpha=0.55; ctx.setLineDash([3,3]); ctx.lineWidth=1.3;
       ctx.beginPath();
-      dome.forEach((d,i)=>{ const x=X(d.hl), y=Y(d.P/1e5); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+      dome.forEach((d,i)=>{ const x=X(d.hl), y=Y(d.P/KGF_TO_PA); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
       ctx.stroke();
       ctx.beginPath();
-      dome.forEach((d,i)=>{ const x=X(d.hv), y=Y(d.P/1e5); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+      dome.forEach((d,i)=>{ const x=X(d.hv), y=Y(d.P/KGF_TO_PA); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
       ctx.stroke();
       ctx.setLineDash([]); ctx.globalAlpha=1;
     }
     // cycle path
     const r = results[fl];
-    const path = [[r.h1,r.Pe/1e5],[r.h2,r.Pc/1e5],[r.h3,r.Pc/1e5],[r.h4,r.Pe/1e5],[r.h1,r.Pe/1e5]];
+    const path = [[r.h1,r.Pe/KGF_TO_PA],[r.h2,r.Pc/KGF_TO_PA],[r.h3,r.Pc/KGF_TO_PA],[r.h4,r.Pe/KGF_TO_PA],[r.h1,r.Pe/KGF_TO_PA]];
     ctx.strokeStyle = col; ctx.lineWidth = fl===state.fluid?2.6:1.4;
     ctx.globalAlpha = fl===state.fluid?1:0.5;
     ctx.beginPath();
@@ -912,7 +913,7 @@ fluidBtn.addEventListener('click', e=>{
 });
 
 /* ===================== ARI / CHEER presets =====================
-   Ps, Pd : absolute suction/discharge pressure [bar,abs]
+   Ps, Pd : absolute suction/discharge pressure [kgf/cm2,abs]
    Ts     : absolute suction (return gas) temperature [°C] — fixed regardless of fluid
    Tvi    : absolute liquid-line temperature after subcooling [°C]
    ΔTsh/ΔTsc are derived at click-time from whichever engine (real CoolProp or
@@ -920,14 +921,14 @@ fluidBtn.addEventListener('click', e=>{
    fluids first and then applying a preset gives that fluid's correct ΔTsh/ΔTsc
    for the same absolute Ps/Ts/Pd/Tvi condition. */
 const PRESETS = {
-  ari:   {Ps:10.15, Ts:18.3, Pd:34.46, Tvi:46.1},
-  cheer: {Ps:10.15, Ts:18.3, Pd:23.34, Tvi:29.5},
+  ari:   {Ps:10.35, Ts:18.3, Pd:35.15, Tvi:46.1},
+  cheer: {Ps:10.35, Ts:18.3, Pd:23.81, Tvi:29.5},
 };
 
 function applyPreset(name){
   const p = PRESETS[name];
-  const TeDewC = TsatFromP(state.fluid, p.Ps*1e5, 1) - 273.15;
-  const TcBubC = TsatFromP(state.fluid, p.Pd*1e5, 0) - 273.15;
+  const TeDewC = TsatFromP(state.fluid, p.Ps*KGF_TO_PA, 1) - 273.15;
+  const TcBubC = TsatFromP(state.fluid, p.Pd*KGF_TO_PA, 0) - 273.15;
   state.Pe = p.Ps;
   state.Pc = p.Pd;
   state.Tsh = p.Ts - TeDewC;
@@ -960,7 +961,7 @@ document.querySelectorAll('.fluid-option').forEach(opt=>{
     if (state.fluid==='R744'){
       if (state.Pgc < 60) state.Pgc = 100;
     } else {
-      const critBar = FLUIDS[state.fluid].Pc/1e5;
+      const critBar = FLUIDS[state.fluid].Pc/KGF_TO_PA;
       const ceilBar = Math.floor(critBar*0.98*100)/100;
       if (state.Pc > ceilBar || state.Pc < 5) state.Pc = Math.min(33.3, ceilBar);
     }
