@@ -125,15 +125,15 @@
       <h2>운전 압력 (절대압)</h2>
       <div class="slider-block">
         <div class="slider-head"><span class="name">증발압력 Pe</span>
-          <span><input type="number" class="num-input mono" id="n-Pe" value="10.15" step="0.01" min="1" max="50"> bar</span>
+          <span><input type="number" class="num-input mono" id="n-Pe" value="10.15" step="0.01" min="1.02" max="50.99"> kgf/cm²</span>
         </div>
-        <input type="range" id="s-Pe" min="1" max="50" step="0.01" value="10.15">
+        <input type="range" id="s-Pe" min="1.02" max="50.99" step="0.01" value="10.15">
       </div>
       <div class="slider-block">
         <div class="slider-head"><span class="name">응축압력 Pc</span>
-          <span><input type="number" class="num-input mono" id="n-Pc" value="34.46" step="0.01" min="5" max="48"> bar</span>
+          <span><input type="number" class="num-input mono" id="n-Pc" value="34.48" step="0.01" min="5.10" max="48.95"> kgf/cm²</span>
         </div>
-        <input type="range" id="s-Pc" min="5" max="48" step="0.01" value="34.46">
+        <input type="range" id="s-Pc" min="5.10" max="48.95" step="0.01" value="34.48">
         <div class="note" id="pc-ceiling-note"></div>
       </div>
       <div class="slider-block">
@@ -257,6 +257,7 @@ const FLUIDS = {
           cpA:-0.505, cpB:0.01789, cpC:0.0, cpD:0.0, color:'--r32', label:'R32'}
 };
 const T0 = 273.15, P0 = 1e5;
+const KGF_TO_PA = 98066.5;  // 1 kgf/cm^2 = 98066.5 Pa (exact, by definition)
 
 function prParams(fl,T){
   const d = FLUIDS[fl];
@@ -444,15 +445,15 @@ function chamberSequence(params){
 
 /* ===================== UI state ===================== */
 let state = {
-  fluid:'R410A', Pe:10.15, Pc:34.46, PbackFrac:0.50,
+  fluid:'R410A', Pe:10.15, Pc:34.48, PbackFrac:0.50,
   a:3.0, k:0.75, xi1:2.0, xi2:2.0, phi_e:1080, phi0:30, h:20
 };
 const $ = id=>document.getElementById(id);
 
 function computePeC(fl){
-  const critBar = FLUIDS[fl].Pc/1e5;
-  const safePc = Math.min(state.Pc, critBar*0.98);
-  return {PePa: state.Pe*1e5, PcPa: safePc*1e5};
+  const critKgf = FLUIDS[fl].Pc/KGF_TO_PA;
+  const safePc = Math.min(state.Pc, critKgf*0.98);
+  return {PePa: state.Pe*KGF_TO_PA, PcPa: safePc*KGF_TO_PA};
 }
 
 function runForFluid(fl){
@@ -504,10 +505,10 @@ function render(){
   $('fluid-name').textContent = FLUIDS[state.fluid].label;
   $('fluid-btn').style.borderColor = fluidColor;
 
-  const critBar = FLUIDS[state.fluid].Pc/1e5;
-  const ceilBar = Math.floor(critBar*0.98*100)/100;
-  $('s-Pc').max = ceilBar; $('n-Pc').max = ceilBar;
-  $('pc-ceiling-note').textContent = state.fluid+' 임계압력 '+critBar.toFixed(1)+'bar(abs) 아래로 제한 (최대 '+ceilBar.toFixed(2)+'bar).';
+  const critKgf = FLUIDS[state.fluid].Pc/KGF_TO_PA;
+  const ceilKgf = Math.floor(critKgf*0.98*100)/100;
+  $('s-Pc').max = ceilKgf; $('n-Pc').max = ceilKgf;
+  $('pc-ceiling-note').textContent = state.fluid+' 임계압력 '+critKgf.toFixed(1)+'kgf/cm²(abs) 아래로 제한 (최대 '+ceilKgf.toFixed(2)+'kgf/cm²).';
 
   const res = runForFluid(state.fluid);
   $('kpi-title').textContent = '계산 결과 — '+state.fluid;
@@ -591,9 +592,9 @@ fluidMenu.addEventListener('click', e=>e.stopPropagation());
 document.querySelectorAll('.fluid-option').forEach(opt=>{
   opt.addEventListener('click', ()=>{
     state.fluid = opt.dataset.fluid;
-    const critBar = FLUIDS[state.fluid].Pc/1e5;
-    const ceilBar = Math.floor(critBar*0.98*100)/100;
-    if (state.Pc > ceilBar || state.Pc < 5) state.Pc = Math.min(34.46, ceilBar);
+    const critKgf = FLUIDS[state.fluid].Pc/KGF_TO_PA;
+    const ceilKgf = Math.floor(critKgf*0.98*100)/100;
+    if (state.Pc > ceilKgf || state.Pc < 5.10) state.Pc = Math.min(35.14, ceilKgf);
     closeFluidMenu(); render();
   });
 });
